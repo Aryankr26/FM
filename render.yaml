@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: fleet-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build
+    startCommand: pnpm prisma:deploy && pnpm start
+    envVars:
+      - key: DATABASE_URL
+      - key: JWT_SECRET
+      - key: JWT_REFRESH_SECRET
+      - key: JWT_EXPIRES_IN
+      - key: JWT_REFRESH_EXPIRES_IN
+      - key: FRONTEND_URL
+      - key: CORS_ORIGINS
+      - key: NODE_ENV
+      - key: LOG_LEVEL
+      - key: MILLITRACK_TOKEN
+      - key: MILLITRACK_BASE_URL

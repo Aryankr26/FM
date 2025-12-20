@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String?
+  role         String   @default("supervisor") // owner | supervisor | driver
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  vehicles     Vehicle[]
+}
+
+model Vehicle {
+  id              String   @id @default(cuid())
+  imei            String   @unique
+  registrationNo  String?  @unique
+  make            String?
+  model           String?
+  year            Int?
+  vin             String?
+  fuelCapacity    Float?   @default(200) // liters
+  ownerId         String?
+  owner           User?    @relation(fields: [ownerId], references: [id])
+  
+  // Last known position
+  lastLat         Float?
+  lastLng         Float?
+  lastSeen        DateTime?
+  lastSpeed       Float?
+  lastIgnition    Boolean?
+  
+  // Odometer tracking
+  gpsOdometer     Float    @default(0) // GPS-calculated km
+  dashOdometer    Float    @default(0) // Vehicle-reported km
+  
+  // Status
+  status          String   @default("active") // active | inactive | maintenance
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  telemetries     Telemetry[]
+  fuelEvents      FuelEvent[]
+  alerts          Alert[]
+  trips           Trip[]
+  geofenceAlerts  GeofenceAlert[]
+  tyres           Tyre[]
+}
+
+model Telemetry {
+  id            String   @id @default(cuid())
+  vehicleId     String
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  timestamp     DateTime
+  latitude      Float
+  longitude     Float
+  speed         Float
+  ignition      Boolean
+  motion        Boolean?
+  
+  // Optional sensor data
+  fuelLevel     Float?   // percentage or liters
+  odometer      Float?   // vehicle-reported odometer
+  power         Float?   // voltage
+  
+  // Raw data from provider
+  raw           Json?
+  
+  processedAt   DateTime @default(now())
+  
+  @@index([vehicleId, timestamp(sort: Desc)])
+  @@index([timestamp])
+}
+
+model FuelEvent {
+  id            String   @id @default(cuid())
+  vehicleId     String
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  timestamp     DateTime
+  eventType     String   // THEFT | REFILL | LOSS | NORMAL | MANIPULATION
+  
+  previousLevel Float
+  currentLevel  Float
+  delta         Float    // positive = refill, negative = consumption/theft
+  
+  distanceKm    Float    // distance traveled since last reading
+  engineState   String   // ON | OFF
+  
+  // Detection details
+  pattern       String   // ENGINE_OFF_DROP | RAPID_DROP | REFILL_NO_MOVEMENT | GRADUAL_LOSS | SUSPICIOUS_PATTERN
+  severity      String   // green | yellow | red
+  confidence    Int      // 0-100
+  evidence      String[] // array of evidence strings
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([vehicleId, severity])
+  @@index([timestamp])
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  vehicleId   String?
+  vehicle     Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  
+  type        String   // FUEL_THEFT | ODOMETER_TAMPER | GEOFENCE_VIOLATION | TIRE_THEFT | SPEED_VIOLATION | etc.
+  severity    String   // info | warning | critical
+  
+  title       String
+  message     String
+  
+  // Metadata for additional context
+  metadata    Json?
+  
+  resolved    Boolean   @default(false)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([severity, resolved])
+  @@index([vehicleId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
+model Trip {
+  id          String    @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  startTime   DateTime
+  endTime     DateTime?
+  
+  startLat    Float?
+  startLng    Float?
+  startOdometer Float?
+  endOdometer   Float?
+  endLat      Float?
+  endLng      Float?
+  
+  distanceKm  Float   @default(0)
+  avgSpeed    Float?
+  maxSpeed    Float?
+  
+  startFuel   Float?
+  endFuel     Float?
+  fuelConsumed Float?  @default(0)
+
+  status      String  @default("active") // active | completed
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([vehicleId, startTime(sort: Desc)])
+}
+
+model Geofence {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  
+  type        String   // circle | polygon
+  
+  // For circle type
+  centerLat   Float?
+  centerLng   Float?
+  radius      Float?   // meters
+  
+  // For polygon type
+  polygon     Json?    // array of [lat, lng] coordinates
+  
+  active      Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  alerts      GeofenceAlert[]
+}
+
+model GeofenceAlert {
+  id          String    @id @default(cuid())
+  geofenceId  String
+  geofence    Geofence  @relation(fields: [geofenceId], references: [id], onDelete: Cascade)
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  alertType   String    // ENTRY | EXIT | DWELL
+  message     String
+  
+  latitude    Float
+  longitude   Float
+  
+  timestamp   DateTime
+  resolved    Boolean   @default(false)
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([vehicleId, timestamp(sort: Desc)])
+}
+
+model Tyre {
+  id          String    @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  position    String    // FRONT_LEFT | FRONT_RIGHT | REAR_LEFT | REAR_RIGHT | SPARE
+  serialNo    String?
+  brand       String?
+  model       String?
+  
+  installedAt DateTime
+  removedAt   DateTime?
+  
+  status      String    @default("installed") // installed | removed | stolen
+  
+  odometer    Float?    // odometer reading at installation
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([vehicleId, status])
+}
