@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { LoginPage } from './components/pages/LoginPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import { OwnerDashboard } from './components/pages/OwnerDashboard';
@@ -10,18 +10,18 @@ import { Settings } from './components/pages/Settings';
 import { ReportsData } from './components/pages/ReportsData';
 import { CompanyRoutes } from './components/pages/CompanyRoutes';
 export default function App() {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userRole, setUserRole] = useState(null);
-    const [currentPage, setCurrentPage] = useState('dashboard');
-    const [selectedVehicleId, setSelectedVehicleId] = useState(undefined);
-    useEffect(() => {
+    const [isLoggedIn, setIsLoggedIn] = useState(() => {
         const token = localStorage.getItem('fleet.token');
         const role = localStorage.getItem('fleet.role');
-        if (token && role) {
-            setUserRole(role);
-            setIsLoggedIn(true);
-        }
-    }, []);
+        return Boolean(token && role);
+    });
+    const [userRole, setUserRole] = useState(() => {
+        const token = localStorage.getItem('fleet.token');
+        const role = localStorage.getItem('fleet.role');
+        return token && role ? role : null;
+    });
+    const [currentPage, setCurrentPage] = useState('dashboard');
+    const [selectedVehicleId, setSelectedVehicleId] = useState(undefined);
 
     const handleLogin = (role) => {
         setUserRole(role);

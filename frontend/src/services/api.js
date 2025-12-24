@@ -34,11 +34,16 @@ const request = async (endpoint, options = {}) => {
 
   try {
     const response = await fetch(url, config);
-    const data = await response.json();
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
 
     if (!response.ok) {
       throw new ApiError(
-        data.message || 'Request failed',
+        (data && (data.error || data.message)) || 'Request failed',
         response.status,
         data
       );
@@ -157,9 +162,21 @@ export const alertsApi = {
 
 // Dashboard API
 export const dashboardApi = {
-  getStats: () => request('/api/dashboard/stats'),
+  getStats: () => request('/api/dashboard/statistics'),
 
-  getFleetOverview: () => request('/api/dashboard/fleet-overview'),
+  getLiveVehicles: () => request('/api/dashboard/live'),
+
+  getRecentAlerts: () => request('/api/dashboard/alerts'),
+
+  getFuelStats: (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    return request(`/api/dashboard/fuel-stats${queryParams ? `?${queryParams}` : ''}`);
+  },
+
+  getTripStats: (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    return request(`/api/dashboard/trip-stats${queryParams ? `?${queryParams}` : ''}`);
+  },
 };
 
 // Geofence API (to be implemented in backend if not exists)
