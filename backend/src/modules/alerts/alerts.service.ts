@@ -79,7 +79,7 @@ export class AlertService {
     const alerts = await prisma.alert.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: parseInt(limit as any, 10),
+      take: take,
       include: {
         vehicle: {
           select: {
