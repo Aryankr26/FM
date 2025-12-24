@@ -28,20 +28,31 @@ export class DashboardService {
         },
       });
 
+      // Guard against empty vehicles array
+      if (!vehicles || vehicles.length === 0) {
+        return {
+          fleet: { total: 0, moving: 0, stopped: 0, idle: 0, offline: 0 },
+          alerts: { unresolved: 0, critical: 0, today: 0 },
+          trips: { active: 0 },
+        };
+      }
+
       // Calculate vehicle states
       let moving = 0;
       let stopped = 0;
       let idle = 0;
       let offline = 0;
 
-      vehicles.forEach((vehicle: { lastSeen: Date | null; lastSpeed: number | null; lastIgnition: boolean | null }) => {
-        if (!vehicle.lastSeen || vehicle.lastSeen < offlineThreshold) {
+      vehicles.forEach((vehicle) => {
+        const lastSeen = vehicle.lastSeen;
+        const lastSpeed = vehicle.lastSpeed ?? 0;
+        const lastIgnition = vehicle.lastIgnition ?? false;
+        
+        if (!lastSeen || lastSeen < offlineThreshold) {
           offline++;
         } else {
-          const spd = vehicle.lastSpeed ?? 0;
-          const ign = vehicle.lastIgnition ?? false;
-          if (spd > THRESHOLDS.MOVING_SPEED_THRESHOLD) moving++;
-          else if (ign && spd > THRESHOLDS.IDLE_SPEED_THRESHOLD) idle++;
+          if (lastSpeed > THRESHOLDS.MOVING_SPEED_THRESHOLD) moving++;
+          else if (lastIgnition && lastSpeed > THRESHOLDS.IDLE_SPEED_THRESHOLD) idle++;
           else stopped++;
         }
       });
@@ -90,6 +101,7 @@ export class DashboardService {
    */
   async getRecentAlerts() {
     try {
+      // Get recent alerts with safe fallback
       const alerts = await prisma.alert.findMany({
         where: { resolved: false },
         orderBy: { createdAt: 'desc' },
@@ -105,7 +117,8 @@ export class DashboardService {
         },
       });
 
-      return alerts;
+      // Guard against null/undefined alerts
+      return alerts || [];
     } catch (error) {
       logger.error(`Failed to get recent alerts: ${error}`);
       throw error;
@@ -122,6 +135,7 @@ export class DashboardService {
         now.getTime() - THRESHOLDS.DEVICE_OFFLINE_THRESHOLD * 60 * 1000
       );
 
+      // Get live vehicles with safe fallback
       const vehicles = await prisma.vehicle.findMany({
         where: {
           status: 'active',
@@ -145,18 +159,29 @@ export class DashboardService {
         orderBy: { registrationNo: 'asc' },
       });
 
-      // Compute state per vehicle
-      return vehicles.map((v: { lastSeen: Date | null; lastSpeed: number | null; lastIgnition: boolean | null }) => ({
-        ...v,
-        state:
-          !v.lastSeen || v.lastSeen < offlineThreshold
-            ? 'offline'
-            : (v.lastSpeed ?? 0) > THRESHOLDS.MOVING_SPEED_THRESHOLD
-              ? 'moving'
-              : (v.lastIgnition ?? false) && (v.lastSpeed ?? 0) > THRESHOLDS.IDLE_SPEED_THRESHOLD
-                ? 'idle'
-                : 'stopped',
-      }));
+      // Guard against empty vehicles array
+      if (!vehicles || vehicles.length === 0) {
+        return [];
+      }
+
+      // Compute state per vehicle with safe defaults
+      return vehicles.map((v) => {
+        const lastSeen = v.lastSeen;
+        const lastSpeed = v.lastSpeed ?? 0;
+        const lastIgnition = v.lastIgnition ?? false;
+        
+        return {
+          ...v,
+          state:
+            !lastSeen || lastSeen < offlineThreshold
+              ? 'offline'
+              : lastSpeed > THRESHOLDS.MOVING_SPEED_THRESHOLD
+                ? 'moving'
+                : lastIgnition && lastSpeed > THRESHOLDS.IDLE_SPEED_THRESHOLD
+                  ? 'idle'
+                  : 'stopped',
+        };
+      });
     } catch (error) {
       logger.error(`Failed to get live vehicles: ${error}`);
       throw error;
@@ -185,14 +210,14 @@ export class DashboardService {
         },
       });
 
-      // Aggregate by event type
-      const thefts = fuelEvents.filter((e: any) => e.eventType === 'THEFT');
-      const refills = fuelEvents.filter((e: any) => e.eventType === 'REFILL');
-      const losses = fuelEvents.filter((e: any) => e.eventType === 'LOSS');
+      // Aggregate by event type with safe guards
+      const thefts = fuelEvents.filter((e) => e.eventType === 'THEFT');
+      const refills = fuelEvents.filter((e) => e.eventType === 'REFILL');
+      const losses = fuelEvents.filter((e) => e.eventType === 'LOSS');
 
-      const totalTheft = thefts.reduce((sum: number, e: any) => sum + Math.abs(e.delta), 0);
-      const totalRefill = refills.reduce((sum: number, e: any) => sum + e.delta, 0);
-      const totalLoss = losses.reduce((sum: number, e: any) => sum + Math.abs(e.delta), 0);
+      const totalTheft = thefts.reduce((sum, e) => sum + (e.delta ? Math.abs(e.delta) : 0), 0);
+      const totalRefill = refills.reduce((sum, e) => sum + (e.delta || 0), 0);
+      const totalLoss = losses.reduce((sum, e) => sum + (e.delta ? Math.abs(e.delta) : 0), 0);
 
       return {
         period: `${days} days`,
@@ -236,8 +261,9 @@ export class DashboardService {
         },
       });
 
-      const totalDistance = trips.reduce((sum: number, t: any) => sum + t.distanceKm, 0);
-      const totalFuel = trips.reduce((sum: number, t: any) => sum + t.fuelConsumed, 0);
+      // Calculate averages with division by zero protection
+      const totalDistance = trips.reduce((sum, t) => sum + (t.distanceKm || 0), 0);
+      const totalFuel = trips.reduce((sum, t) => sum + (t.fuelConsumed || 0), 0);
       const avgMileage = totalFuel > 0 ? totalDistance / totalFuel : 0;
 
       return {

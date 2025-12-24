@@ -93,34 +93,51 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
         setError(null);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data');
+        
+        // Enhanced error handling
+        if (err.status === 500) {
+          setError('Server error - please try again');
+        } else if (err.status === 401) {
+          setError('Authentication expired - please login again');
+        } else if (err.status >= 400 && err.status < 500) {
+          setError('Invalid request - please refresh');
+        } else {
+          setError('Failed to load dashboard data');
+        }
+        
+        // Set fallback data to prevent UI crashes
+        setVehicles([]);
+        setAlerts([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-
-    // Setup WebSocket for real-time updates
-    wsService.connect();
     
-    const unsubVehicle = wsService.on('vehicle:update', (data) => {
-      setVehicles(prev => prev.map(v => 
-        v.id === data.vehicleId ? transformVehicle({ ...v, ...data }) : v
-      ));
-    });
+    // Set up real-time updates
+    const handleVehicleUpdate = (data) => {
+      setVehicles(prev => {
+        const index = prev.findIndex(v => v.id === data.id);
+        if (index !== -1) {
+          const updated = [...prev];
+          updated[index] = transformVehicle(data);
+          return updated;
+        }
+        return prev;
+      });
+    };
 
-    const unsubAlert = wsService.on('alert:new', (alert) => {
-      setAlerts(prev => [alert, ...prev].slice(0, 10));
-    });
+    const handleAlertUpdate = (alert) => {
+      setAlerts(prev => [alert, ...prev.slice(0, 9)]);
+    };
 
-    // Refresh periodically
-    const interval = setInterval(fetchDashboardData, 60000);
+    wsService.on('vehicle_update', handleVehicleUpdate);
+    wsService.on('alert_created', handleAlertUpdate);
 
     return () => {
-      unsubVehicle();
-      unsubAlert();
-      clearInterval(interval);
+      wsService.off('vehicle_update', handleVehicleUpdate);
+      wsService.off('alert_created', handleAlertUpdate);
     };
   }, []);
 

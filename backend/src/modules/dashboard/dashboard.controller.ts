@@ -10,9 +10,9 @@ export class DashboardController {
   async getStatistics(_req: Request, res: Response, next: NextFunction) {
     try {
       const stats = await dashboardService.getFleetStatistics();
-      res.json(stats);
+      return res.json(stats);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
@@ -22,12 +22,12 @@ export class DashboardController {
   async getRecentAlerts(_req: Request, res: Response, next: NextFunction) {
     try {
       const alerts = await dashboardService.getRecentAlerts();
-      res.json({
+      return res.json({
         count: alerts.length,
         data: alerts,
       });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
@@ -37,12 +37,12 @@ export class DashboardController {
   async getLiveVehicles(_req: Request, res: Response, next: NextFunction) {
     try {
       const vehicles = await dashboardService.getLiveVehicles();
-      res.json({
+      return res.json({
         count: vehicles.length,
         data: vehicles,
       });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
@@ -53,9 +53,9 @@ export class DashboardController {
     try {
       const days = req.query.days ? parseInt(req.query.days as string, 10) : 7;
       const stats = await dashboardService.getFuelStatistics(days);
-      res.json(stats);
+      return res.json(stats);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
@@ -66,9 +66,9 @@ export class DashboardController {
     try {
       const days = req.query.days ? parseInt(req.query.days as string, 10) : 30;
       const stats = await dashboardService.getTripStatistics(days);
-      res.json(stats);
+      return res.json(stats);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 }
