@@ -60,7 +60,9 @@ export class AlertService {
     if (vehicleId) where.vehicleId = vehicleId;
     if (type) where.type = type;
     if (severity) where.severity = severity;
-    if (resolved !== undefined) where.resolved = Boolean(resolved);
+    if (resolved !== undefined) {
+      where.resolved = resolved;
+    }
 
     if (startDate || endDate) {
       where.createdAt = {};

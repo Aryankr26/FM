@@ -51,12 +51,12 @@ export class AlertsController {
 
       const alert = await alertService.resolveAlert(id, resolvedBy);
 
-      res.json({
+      return res.json({
         message: 'Alert resolved successfully',
         alert,
       });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
