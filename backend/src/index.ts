@@ -9,7 +9,7 @@ const app = createApp();
 const server = http.createServer(app);
 
 async function start() {
-  server.listen(env.server.port, '0.0.0.0', () => {
+  server.listen(env.server.port, () => {
     logger.info('Server started', { port: env.server.port });
   });
 

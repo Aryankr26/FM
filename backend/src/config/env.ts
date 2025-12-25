@@ -1,7 +1,34 @@
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { z } from 'zod';
 
-dotenv.config();
+const initialEnv = { ...process.env };
+
+const applyParsedEnv = (parsed: Record<string, string>, allowOverride: boolean) => {
+  for (const [key, value] of Object.entries(parsed)) {
+    if (initialEnv[key] !== undefined) continue;
+    if (!allowOverride && process.env[key] !== undefined) continue;
+    process.env[key] = value;
+  }
+};
+
+const loadEnvFile = (filePath: string, allowOverride: boolean) => {
+  try {
+    if (!fs.existsSync(filePath)) return;
+    const contents = fs.readFileSync(filePath);
+    const parsed = dotenv.parse(contents);
+    applyParsedEnv(parsed, allowOverride);
+  } catch {
+    return;
+  }
+};
+
+const repoRootEnvPath = path.resolve(__dirname, '..', '..', '..', '.env');
+const backendEnvPath = path.resolve(__dirname, '..', '..', '.env');
+
+loadEnvFile(repoRootEnvPath, false);
+loadEnvFile(backendEnvPath, true);
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),

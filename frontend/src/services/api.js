@@ -1,7 +1,7 @@
 // API Service Layer for Fleet Management System
 // Centralized API communication with the backend
 
-const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
 
 class ApiError extends Error {
   constructor(message, status, data) {
@@ -75,17 +75,29 @@ const request = async (endpoint, options = {}) => {
 
 // Auth API
 export const authApi = {
-  login: (email, password) =>
-    request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
+  login: (emailOrPayload, password) => {
+    const email =
+      emailOrPayload && typeof emailOrPayload === 'object' ? emailOrPayload.email : emailOrPayload;
+    const pass =
+      emailOrPayload && typeof emailOrPayload === 'object' ? emailOrPayload.password : password;
 
-  register: (email, password, name, role) =>
-    request('/api/auth/register', {
+    return request('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name, role }),
-    }),
+      body: JSON.stringify({ email, password: pass }),
+    });
+  },
+
+  register: (emailOrPayload, password, name, role) => {
+    const payload =
+      emailOrPayload && typeof emailOrPayload === 'object'
+        ? emailOrPayload
+        : { email: emailOrPayload, password, name, role };
+
+    return request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 
   me: () => request('/api/auth/me'),
 

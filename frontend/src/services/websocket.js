@@ -1,7 +1,7 @@
 // WebSocket Service for real-time updates
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000';
+const SOCKET_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_API_URL || 'http://127.0.0.1:4000';
 
 class WebSocketService {
   constructor() {

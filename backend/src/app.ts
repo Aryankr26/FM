@@ -15,8 +15,6 @@ import geofenceRoutes from './modules/geofence/geofence.routes';
 import tripRoutes from './modules/trip/trip.routes';
 
 const isLocalDevOrigin = (origin: string): boolean => {
-  if (env.server.nodeEnv === 'production') return false;
-
   try {
     const u = new URL(origin);
     return u.hostname === 'localhost' || u.hostname === '127.0.0.1';

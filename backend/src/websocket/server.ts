@@ -7,8 +7,6 @@ import { logger } from '../config/logger';
 let io: SocketIOServer | null = null;
 
 const isLocalDevOrigin = (origin: string): boolean => {
-  if (env.server.nodeEnv === 'production') return false;
-
   try {
     const u = new URL(origin);
     return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
