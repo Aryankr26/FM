@@ -1,42 +1,21 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import { TelemetryController } from './telemetry.controller';
-import { validate } from '../../middleware/validator';
-import { telemetryInputSchema, getTelemetrySchema } from './telemetry.types';
 import { authenticate } from '../../middleware/auth';
 import { telemetryLimiter } from '../../middleware/rateLimiter';
+import { validate } from '../../middleware/validator';
+import { TelemetryController } from './telemetry.controller';
+import { telemetryInputSchema, getTelemetrySchema } from './telemetry.types';
 
 const router: ExpressRouter = Router();
-const telemetryController = new TelemetryController();
+const controller = new TelemetryController();
 
-// Ingest telemetry (high rate limit for GPS devices)
-router.post(
-  '/',
-  telemetryLimiter,
-  authenticate,
-  validate(telemetryInputSchema),
-  telemetryController.ingest.bind(telemetryController)
-);
+router.post('/', telemetryLimiter, authenticate, validate(telemetryInputSchema), controller.ingest.bind(controller));
+router.get('/latest/all', authenticate, controller.getAllLatestTelemetry.bind(controller));
 
-// Get telemetry for specific vehicle (protected)
-router.get(
-  '/:vehicleId',
-  authenticate,
-  validate(getTelemetrySchema),
-  telemetryController.getTelemetryByVehicle.bind(telemetryController)
-);
+// Legacy aliases used by older clients
+router.get('/vehicle/:vehicleId', authenticate, validate(getTelemetrySchema), controller.getTelemetryByVehicle.bind(controller));
+router.get('/vehicle/:vehicleId/latest', authenticate, controller.getLatestTelemetry.bind(controller));
 
-// Get latest telemetry for specific vehicle (protected)
-router.get(
-  '/:vehicleId/latest',
-  authenticate,
-  telemetryController.getLatestTelemetry.bind(telemetryController)
-);
-
-// Get latest telemetry for all vehicles (protected)
-router.get(
-  '/latest/all',
-  authenticate,
-  telemetryController.getAllLatestTelemetry.bind(telemetryController)
-);
+router.get('/:vehicleId/latest', authenticate, controller.getLatestTelemetry.bind(controller));
+router.get('/:vehicleId', authenticate, validate(getTelemetrySchema), controller.getTelemetryByVehicle.bind(controller));
 
 export default router;

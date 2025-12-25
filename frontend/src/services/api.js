@@ -1,7 +1,7 @@
 // API Service Layer for Fleet Management System
 // Centralized API communication with the backend
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
 class ApiError extends Error {
   constructor(message, status, data) {
@@ -48,10 +48,7 @@ const request = async (endpoint, options = {}) => {
       localStorage.removeItem('fleet.token');
       localStorage.removeItem('fleet.role');
       localStorage.removeItem('fleet.email');
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
+      window.location.href = '/';
       throw new ApiError('Session expired. Please login again.', 401, data);
     }
 
@@ -176,9 +173,12 @@ export const alertsApi = {
 
 // Dashboard API
 export const dashboardApi = {
+  // Legacy pages call getStatistics() + getLive()
   getStats: () => request('/api/dashboard/statistics'),
+  getStatistics: () => request('/api/dashboard/statistics'),
 
   getLiveVehicles: () => request('/api/dashboard/live'),
+  getLive: () => request('/api/dashboard/live'),
 
   getRecentAlerts: () => request('/api/dashboard/alerts'),
 

@@ -1,201 +1,46 @@
-# Fleet Management System
+# Getting Started with Create React App
 
-A production-ready, real-time fleet management solution with web and mobile interfaces.
+This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-## 🚀 Features
+## Available Scripts
 
-- **Real-time Vehicle Tracking**: Live GPS tracking with OpenStreetMap
-- **Interactive Dashboard**: Multiple views for owners, supervisors, and operators
-- **Geofencing**: Create and monitor virtual boundaries with alerts
-- **Real-time Updates**: WebSocket/Socket.IO for instant telemetry
-- **Fuel Monitoring**: Track fuel consumption and detect anomalies
-- **Comprehensive Reports**: Analytics, insights, and historical data
-- **Mobile App**: React Native app for iOS and Android
-- **Production Ready**: Docker, CI/CD, monitoring, and documentation
+In the project directory, you can run:
 
-## 🏗️ Architecture
+### `npm start`
 
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + Leaflet
-- **Backend**: FastAPI + Socket.IO + Redis + PostgreSQL
-- **Mobile**: React Native + Expo
-- **Infrastructure**: Docker + Nginx + GitHub Actions
+Runs the app in the development mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-## 📦 Quick Start
+The page will reload if you make edits.\
+You will also see any lint errors in the console.
 
-### Prerequisites
+### `npm test`
 
-- Node.js 20.x or higher
-- Docker and Docker Compose (recommended)
-- OR: Python 3.11+, PostgreSQL 16+, Redis 7.4+
+Launches the test runner in the interactive watch mode.\
+See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-### Option 1: Docker (Recommended)
+### `npm run build`
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/Fleet_1.0.git
-cd Fleet_1.0
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build for the best performance.
 
-# Frontend setup
-cp .env.example .env
-npm install
+The build is minified and the filenames include the hashes.\
+Your app is ready to be deployed!
 
-# Backend setup
-cd backend
-cp .env.example .env
-# Edit .env and set your configuration
+See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-# Start all services (backend, redis, postgres)
-docker compose -f docker-compose.dev.yml up --build
+### `npm run eject`
 
-# In another terminal, start frontend
-cd ..
-npm run dev
-```
+**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
 
-Frontend: http://localhost:5173  
-Backend: http://localhost:8000  
-API Docs: http://localhost:8000/docs
+If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
 
-### Option 2: Local Development
+Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
 
-```bash
-# Frontend
-npm install
-cp .env.example .env
-npm run dev
+You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
 
-# Backend (in another terminal)
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your database and Redis URLs
-uvicorn app.main:app --reload
-```
+## Learn More
 
-## 📱 Mobile App
+You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
-```bash
-cd mobile
-npm install
-npx expo start
-```
-
-See [mobile/README.md](mobile/README.md) for detailed instructions.
-
-## 🧪 Testing
-
-```bash
-# Frontend tests
-npm test
-
-# Backend tests
-cd backend
-pytest -v
-```
-
-## 🎨 Code Quality
-
-```bash
-# Lint
-npm run lint
-
-# Format
-npm run format
-```
-
-## 📚 Documentation
-
-- [Architecture Overview](docs/ARCHITECTURE.md) - System design and dataflow
-- [Deployment Guide](docs/DEPLOYMENT.md) - Production deployment instructions
-- [Changelog](CHANGELOG.md) - Version history
-- [API Documentation](http://localhost:8000/docs) - Interactive API docs (when backend is running)
-
-## 🔧 Configuration
-
-### Frontend Environment Variables
-
-Create `.env` in the root directory:
-
-```env
-VITE_BACKEND_URL=http://localhost:8000
-```
-
-### Backend Environment Variables
-
-Create `backend/.env`:
-
-```env
-LOG_LEVEL=info
-MILLITRACK_TOKEN=your_token_here
-REDIS_URL=redis://localhost:6379/0
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fleet
-JWT_SECRET=change-this-to-a-secure-random-value
-```
-
-See `.env.example` files for all available options.
-
-## 🚢 Deployment
-
-### Docker Compose (Simple)
-
-```bash
-docker compose -f backend/docker-compose.dev.yml up -d
-```
-
-### Production Deployment
-
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for:
-- Kubernetes manifests
-- Nginx configuration
-- SSL setup with Let's Encrypt
-- Environment-specific configurations
-- Scaling and monitoring
-
-## 🔐 Security
-
-- JWT-based authentication
-- Environment-based secrets
-- CORS configuration
-- Input validation with Pydantic
-- Rate limiting (planned)
-
-**⚠️ IMPORTANT**: Change default secrets before deploying to production!
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Original design: [Figma Fleet Management Dashboard](https://www.figma.com/design/vEtI3rYNOL0AVv7sfixyjJ/Fleet-Management-Dashboard-Design)
-- OpenStreetMap for map tiles
-- FastAPI, React, and all open-source contributors
-
-## 📞 Support
-
-- Issues: [GitHub Issues](https://github.com/yourusername/Fleet_1.0/issues)
-- Discussions: [GitHub Discussions](https://github.com/yourusername/Fleet_1.0/discussions)
-
-## 🗺️ Roadmap
-
-- [x] Real-time tracking with Socket.IO
-- [x] Interactive maps with Leaflet
-- [x] Geofencing management
-- [x] Docker development environment
-- [x] CI/CD pipelines
-- [ ] Mobile app (in progress - see mobile/README.md)
-- [ ] Push notifications
-- [ ] Advanced analytics
-- [ ] Multi-tenant support
-- [ ] API rate limiting
-- [ ] Internationalization (i18n)
+To learn React, check out the [React documentation](https://reactjs.org/).

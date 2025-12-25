@@ -24,14 +24,16 @@ export function FleetMap(props) {
     const mapInstanceRef = useRef(null);
     const externalMapRef = props.mapRef;
     const backendUrl = props.backendUrl ??
-        (import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000');
+        (process.env.REACT_APP_WS_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000');
     useEffect(() => {
         // If caller supplies vehicles, we don't auto-connect.
         if (providedVehicles)
             return;
+        const token = localStorage.getItem('fleet.token');
         const socket = io(backendUrl, {
             path: "/socket.io",
             transports: ["websocket", "polling"],
+            auth: { token },
         });
         socketRef.current = socket;
         const onUpdate = (data) => {

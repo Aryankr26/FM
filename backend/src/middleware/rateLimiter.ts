@@ -1,29 +1,15 @@
 import rateLimit from 'express-rate-limit';
 
-// General API rate limiter
 export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later',
+  windowMs: 60_000,
+  limit: 600,
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Strict limiter for authentication endpoints
-export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
-  message: 'Too many authentication attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-});
-
-// Telemetry ingestion limiter (more permissive for internal use)
 export const telemetryLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 1000, // high limit for telemetry data
-  message: 'Telemetry rate limit exceeded',
+  windowMs: 60_000,
+  limit: 3_000,
   standardHeaders: true,
   legacyHeaders: false,
 });

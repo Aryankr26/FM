@@ -1,53 +1,10 @@
 import winston from 'winston';
 import { env } from './env';
 
-const levels = {
-  error: 0,
-  warn: 1,
-  info: 2,
-  http: 3,
-  debug: 4,
-};
-
-const level = () => {
-  if (env.logger.level) return env.logger.level;
-  return env.server.isDevelopment ? 'debug' : 'info';
-};
-
-const colors = {
-  error: 'red',
-  warn: 'yellow',
-  info: 'green',
-  http: 'magenta',
-  debug: 'white',
-};
-
-winston.addColors(colors);
-
-const shouldColorize = Boolean(process.stdout.isTTY);
-
-const format = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  ...(shouldColorize ? [winston.format.colorize({ all: true })] : []),
-  winston.format.printf(
-    (info) => `${info.timestamp} ${info.level}: ${info.message}`,
-  ),
-);
-
-const transports = env.server.isProduction
-  ? [new winston.transports.Console()]
-  : [
-      new winston.transports.Console(),
-      new winston.transports.File({
-        filename: 'logs/error.log',
-        level: 'error',
-      }),
-      new winston.transports.File({ filename: 'logs/all.log' }),
-    ];
+const level = env.logger.level ?? (env.server.nodeEnv === 'production' ? 'info' : 'debug');
 
 export const logger = winston.createLogger({
-  level: level(),
-  levels,
-  format,
-  transports,
+  level,
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+  transports: [new winston.transports.Console()],
 });

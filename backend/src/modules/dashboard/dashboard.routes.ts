@@ -1,26 +1,15 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import { DashboardController } from './dashboard.controller';
 import { authenticate } from '../../middleware/auth';
+import { DashboardController } from './dashboard.controller';
 
 const router: ExpressRouter = Router();
-const dashboardController = new DashboardController();
+const controller = new DashboardController();
 
-// Apply authentication middleware to all dashboard routes
 router.use(authenticate);
-
-// Get fleet statistics
-router.get('/statistics', dashboardController.getStatistics.bind(dashboardController));
-
-// Get recent alerts
-router.get('/alerts', dashboardController.getRecentAlerts.bind(dashboardController));
-
-// Get live vehicles
-router.get('/live', dashboardController.getLiveVehicles.bind(dashboardController));
-
-// Get fuel statistics
-router.get('/fuel-stats', dashboardController.getFuelStatistics.bind(dashboardController));
-
-// Get trip statistics
-router.get('/trip-stats', dashboardController.getTripStatistics.bind(dashboardController));
+router.get('/statistics', controller.statistics.bind(controller));
+router.get('/alerts', controller.alerts.bind(controller));
+router.get('/live', controller.live.bind(controller));
+router.get('/fuel-stats', controller.fuelStats.bind(controller));
+router.get('/trip-stats', controller.tripStats.bind(controller));
 
 export default router;

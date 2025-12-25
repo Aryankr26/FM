@@ -1,102 +1,79 @@
-import { Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
+import { prisma } from '../../config/database';
+import { broadcastVehicleUpdate } from '../../websocket/broadcaster';
 import { TelemetryService } from './telemetry.service';
-import { TelemetryProcessor } from './telemetry.processor';
-import { TelemetryInput, GetTelemetryQuery } from './telemetry.types';
-import { logger } from '../../config/logger';
+import { type TelemetryInput } from './telemetry.types';
 
-const telemetryService = new TelemetryService();
-const telemetryProcessor = new TelemetryProcessor();
+const service = new TelemetryService();
 
 export class TelemetryController {
-  /**
-   * Ingest telemetry data (POST /api/telemetry)
-   */
   async ingest(req: Request, res: Response, next: NextFunction) {
     try {
-      const input: TelemetryInput = req.body;
+      const input = req.body as TelemetryInput;
+      const timestamp = input.timestamp instanceof Date ? input.timestamp : new Date(input.timestamp);
 
-      // Normalize timestamp
-      const payload = {
-        ...input,
-        timestamp: new Date(input.timestamp),
-      };
+      const vehicle = await prisma.vehicle.findUnique({ where: { imei: input.imei } });
+      if (vehicle) {
+        const payload = { ...input, timestamp };
+        await service.createTelemetry(vehicle.id, payload);
+        await service.updateVehiclePosition(vehicle.id, payload);
 
-      // Process telemetry (async, non-blocking)
-      telemetryProcessor.processTelemetry(payload).catch((error) => {
-        logger.error(`Async telemetry processing failed: ${error}`);
-      });
+        broadcastVehicleUpdate({
+          vehicleId: vehicle.id,
+          imei: vehicle.imei,
+          registrationNo: vehicle.registrationNo,
+          lastLat: payload.latitude,
+          lastLng: payload.longitude,
+          lastSpeed: payload.speed,
+          lastIgnition: payload.ignition,
+          lastSeen: payload.timestamp,
+        });
+      }
 
-      // Return immediate success (don't block on processing)
       res.status(202).json({
         message: 'Telemetry received',
         imei: input.imei,
-        timestamp: payload.timestamp,
+        timestamp,
       });
-    } catch (error) {
-      next(error);
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Get telemetry for a vehicle (GET /api/telemetry/:vehicleId)
-   */
-  async getTelemetryByVehicle(
-    req: Request<GetTelemetryQuery['params'], {}, {}, GetTelemetryQuery['query']>,
-    res: Response,
-    next: NextFunction
-  ) {
+  async getTelemetryByVehicle(req: Request, res: Response, next: NextFunction) {
     try {
-      const { vehicleId } = req.params;
-      const { limit, startDate, endDate } = req.query;
+      const vehicleId = String(req.params.vehicleId);
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
+      const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
 
-      const telemetries = await telemetryService.getTelemetryByVehicle(vehicleId, {
-        limit: (limit as number) || undefined,
-        startDate: startDate ? new Date(startDate as any) : undefined,
-        endDate: endDate ? new Date(endDate as any) : undefined,
-      });
-
-      res.json({
-        count: telemetries.length,
-        data: telemetries,
-      });
-    } catch (error) {
-      next(error);
+      const telemetries = await service.getTelemetryByVehicle(vehicleId, { limit, startDate, endDate });
+      res.json({ count: telemetries.length, data: telemetries });
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Get latest telemetry for a vehicle (GET /api/telemetry/:vehicleId/latest)
-   */
-  async getLatestTelemetry(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getLatestTelemetry(req: Request, res: Response, next: NextFunction) {
     try {
-      const { vehicleId } = req.params;
-
-      const telemetry = await telemetryService.getLatestTelemetry(vehicleId);
-
+      const vehicleId = String(req.params.vehicleId);
+      const telemetry = await service.getLatestTelemetry(vehicleId);
       if (!telemetry) {
-        res.status(404).json({ error: 'No telemetry data found' });
+        res.status(404).json({ message: 'No telemetry data found' });
         return;
       }
-
-      res.json(telemetry);
-    } catch (error) {
-      next(error);
+      res.json({ data: telemetry });
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Get latest telemetry for all vehicles (GET /api/telemetry/latest/all)
-   */
-  async getAllLatestTelemetry(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAllLatestTelemetry(_req: Request, res: Response, next: NextFunction) {
     try {
-      const telemetries = await telemetryService.getLatestTelemetryForAllVehicles();
-
-      res.json({
-        count: telemetries.length,
-        data: telemetries,
-      });
-    } catch (error) {
-      next(error);
+      const telemetries = await service.getLatestTelemetryForAllVehicles();
+      res.json({ count: telemetries.length, data: telemetries });
+    } catch (err) {
+      next(err);
     }
   }
 }

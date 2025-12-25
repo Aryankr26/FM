@@ -1,63 +1,55 @@
-import { Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 import { FuelService } from './fuel.service';
-import { GetFuelEventsQuery } from './fuel.types';
 
-const fuelService = new FuelService();
+const service = new FuelService();
 
 export class FuelController {
-  /**
-   * Get fuel events (GET /api/fuel/events)
-   */
-  async getFuelEvents(req: Request, res: Response, next: NextFunction) {
+  async getEvents(req: Request, res: Response, next: NextFunction) {
     try {
-      const query = req.query as GetFuelEventsQuery;
-      const events = await fuelService.getFuelEvents(query);
+      const vehicleId = req.query.vehicleId ? String(req.query.vehicleId) : undefined;
+      const severity = req.query.severity ? String(req.query.severity) : undefined;
+      const eventType = req.query.eventType ? String(req.query.eventType) : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const startDate = req.query.startDate ? String(req.query.startDate) : undefined;
+      const endDate = req.query.endDate ? String(req.query.endDate) : undefined;
 
-      res.json({
-        count: events.length,
-        data: events,
-      });
-    } catch (error) {
-      next(error);
+      const events = await service.getEvents({ vehicleId, severity, eventType, limit, startDate, endDate });
+      res.json({ count: events.length, data: events });
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Get theft events (GET /api/fuel/theft)
-   */
-  async getTheftEvents(req: Request, res: Response, next: NextFunction) {
+  async getByVehicle(req: Request, res: Response, next: NextFunction) {
     try {
-      const { vehicleId, limit } = req.query;
-
-      const events = await fuelService.getTheftEvents(
-        vehicleId as string | undefined,
-        limit ? parseInt(limit as string, 10) : undefined
-      );
-
-      res.json({
-        count: events.length,
-        data: events,
-      });
-    } catch (error) {
-      next(error);
+      const vehicleId = String(req.params.vehicleId);
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const events = await service.getEvents({ vehicleId, limit });
+      res.json({ count: events.length, data: events });
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Get fuel statistics (GET /api/fuel/statistics)
-   */
-  async getFuelStatistics(req: Request, res: Response, next: NextFunction) {
+  async getTheft(req: Request, res: Response, next: NextFunction) {
     try {
-      const { vehicleId, days } = req.query;
+      const vehicleId = req.query.vehicleId ? String(req.query.vehicleId) : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const events = await service.getTheftEvents({ vehicleId, limit });
+      res.json({ count: events.length, data: events });
+    } catch (err) {
+      next(err);
+    }
+  }
 
-      const stats = await fuelService.getFuelStatistics(
-        vehicleId as string | undefined,
-        days ? parseInt(days as string, 10) : undefined
-      );
-
+  async getStatistics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const vehicleId = req.query.vehicleId ? String(req.query.vehicleId) : undefined;
+      const days = req.query.days ? parseInt(String(req.query.days), 10) : undefined;
+      const stats = await service.getStatistics({ vehicleId, days });
       res.json(stats);
-    } catch (error) {
-      next(error);
+    } catch (err) {
+      next(err);
     }
   }
 }

@@ -1,130 +1,158 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt, { SignOptions } from 'jsonwebtoken';
+import { type NextFunction, type Request, type Response } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../../config/database';
 import { env } from '../../config/env';
 
 export class AuthController {
-  /**
-   * Login user (POST /api/auth/login)
-   */
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password } = req.body;
+      const { email, password } = req.body as { email?: string; password?: string };
 
       if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email and password are required',
-          data: null
-        });
+        res.status(400).json({ message: 'Email and password are required' });
+        return;
       }
 
-      // Find user by email
-      const user = await prisma.user.findUnique({
-        where: { email }
-      });
-
+      const user = await prisma.user.findUnique({ where: { email } });
       if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials',
-          data: null
-        });
+        res.status(401).json({ message: 'Invalid credentials' });
+        return;
       }
 
-      // Verify password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials',
-          data: null
-        });
+      const ok = await bcrypt.compare(password, user.password);
+      if (!ok) {
+        res.status(401).json({ message: 'Invalid credentials' });
+        return;
       }
 
-      // Generate JWT token (single access token as per specification)
       const token = jwt.sign(
-        { 
-          id: user.id, 
-          email: user.email, 
-          role: user.role,
-          companyId: (user as any).companyId
-        },
+        { id: user.id, email: user.email, role: user.role },
         env.auth.jwtSecret,
-        { expiresIn: env.auth.jwtExpiresIn } as SignOptions
+        { expiresIn: '7d' },
       );
 
-      // Return exact contract: { token, user: { id, email, role } }
-      return res.json({
+      res.json({
         token,
         user: {
           id: user.id,
           email: user.email,
-          role: user.role
-        }
+          role: user.role,
+        },
       });
-    } catch (error) {
-      return next(error);
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Refresh token (POST /api/auth/refresh)
-   */
-  async refresh(req: Request, res: Response, _next: NextFunction) {
+  async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const { refreshToken } = req.body;
+      const { email, password, name, role } = req.body as {
+        email?: string;
+        password?: string;
+        name?: string;
+        role?: string;
+      };
 
-      if (!refreshToken) {
-        return res.status(400).json({
-          success: false,
-          message: 'Refresh token is required',
-          data: null
-        });
+      if (!email || !password) {
+        res.status(400).json({ message: 'Email and password are required' });
+        return;
       }
 
-      // Verify refresh token
-      const decoded = jwt.verify(refreshToken, env.auth.jwtRefreshSecret) as any;
-      
-      // Find user
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId }
+      const hashed = await bcrypt.hash(password, 10);
+
+      const user = await prisma.user.create({
+        data: {
+          email,
+          password: hashed,
+          name: name ?? null,
+          role: role ?? 'supervisor',
+        },
       });
 
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid refresh token',
-          data: null
-        });
-      }
-
-      // Generate new access token
-      const newAccessToken = jwt.sign(
-        { 
-          userId: user.id, 
-          email: user.email, 
-          role: user.role,
-          companyId: (user as any).companyId
-        },
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
         env.auth.jwtSecret,
-        { expiresIn: env.auth.jwtExpiresIn } as SignOptions
+        { expiresIn: '7d' },
       );
 
-      return res.json({
+      res.status(201).json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        res.status(409).json({ message: 'Email already exists' });
+        return;
+      }
+      next(err);
+    }
+  }
+
+  async me(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async refresh(req: Request, res: Response) {
+    try {
+      const { refreshToken } = req.body as { refreshToken?: string };
+      if (!refreshToken) {
+        res.status(400).json({ success: false, message: 'Refresh token is required', data: null });
+        return;
+      }
+
+      const decoded = jwt.verify(refreshToken, env.auth.jwtSecret) as any;
+      const userId = String(decoded.id ?? decoded.userId ?? '');
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Invalid refresh token', data: null });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        res.status(401).json({ success: false, message: 'Invalid refresh token', data: null });
+        return;
+      }
+
+      const accessToken = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        env.auth.jwtSecret,
+        { expiresIn: '7d' },
+      );
+
+      res.json({
         success: true,
         message: 'Token refreshed successfully',
-        data: {
-          accessToken: newAccessToken
-        }
+        data: { accessToken },
       });
-    } catch (error) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid refresh token',
-        data: null
-      });
+    } catch {
+      res.status(401).json({ success: false, message: 'Invalid refresh token', data: null });
     }
   }
 }

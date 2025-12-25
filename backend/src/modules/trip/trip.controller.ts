@@ -1,60 +1,43 @@
-import { Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 import { TripService } from './trip.service';
-import { logger } from '../../config/logger';
+
+const service = new TripService();
 
 export class TripController {
-  private tripService: TripService;
-
-  constructor() {
-    this.tripService = new TripService();
-  }
-
   async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const { limit, status } = req.query;
-      const trips = await this.tripService.getAll({
-        limit: limit ? parseInt(limit as string) : undefined,
-        status: status as string,
-      });
-      res.json({ success: true, data: trips });
-    } catch (error) {
-      logger.error('Error getting trips:', error);
-      next(error);
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const status = req.query.status ? String(req.query.status) : undefined;
+      const trips = await service.getAll({ limit, status });
+      res.json({ count: trips.length, data: trips });
+    } catch (err) {
+      next(err);
     }
   }
 
   async getByVehicle(req: Request, res: Response, next: NextFunction) {
     try {
-      const { vehicleId } = req.params;
-      const { limit, status } = req.query;
-      const trips = await this.tripService.getByVehicle(vehicleId, {
-        limit: limit ? parseInt(limit as string) : undefined,
-        status: status as string,
-      });
-      res.json({ success: true, data: trips });
-    } catch (error) {
-      logger.error('Error getting vehicle trips:', error);
-      next(error);
+      const vehicleId = String(req.params.vehicleId);
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const status = req.query.status ? String(req.query.status) : undefined;
+      const trips = await service.getByVehicle(vehicleId, { limit, status });
+      res.json({ count: trips.length, data: trips });
+    } catch (err) {
+      next(err);
     }
   }
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
-      const trip = await this.tripService.getById(id);
-      
+      const id = String(req.params.id);
+      const trip = await service.getById(id);
       if (!trip) {
-        res.status(404).json({ 
-          success: false, 
-          message: 'Trip not found' 
-        });
+        res.status(404).json({ message: 'Trip not found' });
         return;
       }
-
-      res.json({ success: true, data: trip });
-    } catch (error) {
-      logger.error('Error getting trip:', error);
-      next(error);
+      res.json({ data: trip });
+    } catch (err) {
+      next(err);
     }
   }
 }

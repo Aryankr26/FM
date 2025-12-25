@@ -1,29 +1,26 @@
-import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
-import { logger } from '../config/logger';
+import { type NextFunction, type Request, type Response } from 'express';
+import { type AnyZodObject, ZodError } from 'zod';
 
-export const validate = (schema: AnyZodObject) => {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      await schema.parseAsync({
-        body: req.body,
-        query: req.query,
-        params: req.params,
-      });
-      return next();
-    } catch (error) {
-      if (error instanceof ZodError) {
-        logger.warn(`Validation error: ${JSON.stringify(error.errors)}`);
-        res.status(400).json({
-          error: 'Validation failed',
-          details: error.errors.map((err) => ({
-            field: err.path.join('.'),
-            message: err.message,
-          })),
-        });
-        return;
-      }
-      return next(error as Error);
+export const validate = (schema: AnyZodObject) => (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = schema.parse({
+      body: req.body,
+      query: req.query,
+      params: req.params,
+    });
+
+    if (parsed && typeof parsed === 'object') {
+      if ('body' in parsed && parsed.body !== undefined) req.body = parsed.body;
+      if ('query' in parsed && parsed.query !== undefined) req.query = parsed.query;
+      if ('params' in parsed && parsed.params !== undefined) req.params = parsed.params;
     }
-  };
+
+    next();
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ message: 'Validation error', issues: err.issues });
+      return;
+    }
+    next(err as any);
+  }
 };

@@ -1,146 +1,80 @@
-import { Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 import { VehiclesService } from './vehicles.service';
 
-const vehiclesService = new VehiclesService();
+const service = new VehiclesService();
 
 export class VehiclesController {
-  /**
-   * Get all vehicles (GET /api/vehicles)
-   */
   async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const { status, limit, offset } = req.query;
-      
-      const vehicles = await vehiclesService.getAllVehicles({
-        status: status as string,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
-        offset: offset ? parseInt(offset as string, 10) : undefined
-      });
+      const status = req.query.status ? String(req.query.status) : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
 
-      return res.json({
-        success: true,
-        message: 'Vehicles retrieved successfully',
-        data: {
-          count: vehicles.length,
-          vehicles
-        }
-      });
-    } catch (error) {
-      return next(error);
+      const vehicles = await service.getAll({ status, limit, offset });
+      res.json({ count: vehicles.length, data: vehicles });
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Get vehicle by ID (GET /api/vehicles/:id)
-   */
-  async getById(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { id } = req.params;
-      const vehicle = await vehiclesService.getVehicleById(id);
-
-      if (!vehicle) {
-        return res.status(404).json({
-          success: false,
-          message: 'Vehicle not found',
-          data: null
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: 'Vehicle retrieved successfully',
-        data: vehicle
-      });
-    } catch (error) {
-      return next(error);
-    }
-  }
-
-  /**
-   * Get vehicle statistics (GET /api/vehicles/statistics)
-   */
   async getStatistics(_req: Request, res: Response, next: NextFunction) {
     try {
-      const stats = await vehiclesService.getVehicleStatistics();
-      return res.json({
-        success: true,
-        message: 'Vehicle statistics retrieved successfully',
-        data: stats
-      });
-    } catch (error) {
-      return next(error);
+      const stats = await service.getStatistics();
+      res.json(stats);
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Create vehicle (POST /api/vehicles)
-   */
+  async getPositions(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const positions = await service.getPositions();
+      res.json({ count: positions.length, data: positions });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      const vehicle = await service.getById(id);
+      if (!vehicle) {
+        res.status(404).json({ message: 'Vehicle not found' });
+        return;
+      }
+      res.json({ data: vehicle });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const vehicleData = req.body;
-      const vehicle = await vehiclesService.createVehicle(vehicleData);
-
-      return res.status(201).json({
-        success: true,
-        message: 'Vehicle created successfully',
-        data: vehicle
-      });
-    } catch (error) {
-      return next(error);
+      const vehicle = await service.create(req.body);
+      res.status(201).json({ data: vehicle });
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Update vehicle (PUT /api/vehicles/:id)
-   */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
-      const vehicleData = req.body;
-      
-      const vehicle = await vehiclesService.updateVehicle(id, vehicleData);
-
-      if (!vehicle) {
-        return res.status(404).json({
-          success: false,
-          message: 'Vehicle not found',
-          data: null
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: 'Vehicle updated successfully',
-        data: vehicle
-      });
-    } catch (error) {
-      return next(error);
+      const id = String(req.params.id);
+      const vehicle = await service.update(id, req.body);
+      res.json({ data: vehicle });
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * Delete vehicle (DELETE /api/vehicles/:id)
-   */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
-      const result = await vehiclesService.deleteVehicle(id);
-
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          message: 'Vehicle not found',
-          data: null
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: 'Vehicle deleted successfully',
-        data: result
-      });
-    } catch (error) {
-      return next(error);
+      const id = String(req.params.id);
+      const vehicle = await service.delete(id);
+      res.json({ data: vehicle });
+    } catch (err) {
+      next(err);
     }
   }
 }

@@ -1,25 +1,19 @@
 import { Router, type Router as ExpressRouter } from 'express';
+import { authenticate } from '../../middleware/auth';
 import { VehiclesController } from './vehicles.controller';
 
 const router: ExpressRouter = Router();
-const vehiclesController = new VehiclesController();
+const controller = new VehiclesController();
 
-// Get all vehicles
-router.get('/', vehiclesController.getAll.bind(vehiclesController));
+router.use(authenticate);
 
-// Get vehicle by ID
-router.get('/:id', vehiclesController.getById.bind(vehiclesController));
-
-// Get vehicle statistics
-router.get('/statistics', vehiclesController.getStatistics.bind(vehiclesController));
-
-// Create vehicle
-router.post('/', vehiclesController.create.bind(vehiclesController));
-
-// Update vehicle
-router.put('/:id', vehiclesController.update.bind(vehiclesController));
-
-// Delete vehicle
-router.delete('/:id', vehiclesController.delete.bind(vehiclesController));
+router.get('/', controller.getAll.bind(controller));
+router.get('/statistics', controller.getStatistics.bind(controller));
+router.get('/positions', controller.getPositions.bind(controller));
+router.get('/:id', controller.getById.bind(controller));
+router.post('/', controller.create.bind(controller));
+router.put('/:id', controller.update.bind(controller));
+router.patch('/:id', controller.update.bind(controller));
+router.delete('/:id', controller.delete.bind(controller));
 
 export default router;

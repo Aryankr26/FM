@@ -1,162 +1,81 @@
 import { prisma } from '../../config/database';
-import { logger } from '../../config/logger';
 
 export class VehiclesService {
-  /**
-   * Get all vehicles with optional filtering
-   */
-  async getAllVehicles(options: {
-    status?: string;
-    limit?: number;
-    offset?: number;
-  }) {
-    try {
-      const { status, limit, offset } = options;
-      
-      const whereClause: any = {};
-      if (status) {
-        whereClause.status = status;
-      }
+  async getAll(options: { status?: string; limit?: number; offset?: number }) {
+    const where: any = {};
+    if (options.status) where.status = options.status;
 
-      const vehicles = await prisma.vehicle.findMany({
-        where: whereClause,
-        orderBy: { registrationNo: 'asc' },
-        take: limit,
-        skip: offset,
-      });
-
-      return vehicles || [];
-    } catch (error) {
-      logger.error(`Failed to get vehicles: ${error}`);
-      throw error;
-    }
+    return prisma.vehicle.findMany({
+      where,
+      orderBy: { registrationNo: 'asc' },
+      take: options.limit,
+      skip: options.offset,
+    });
   }
 
-  /**
-   * Get vehicle by ID
-   */
-  async getVehicleById(id: string) {
-    try {
-      const vehicle = await prisma.vehicle.findUnique({
-        where: { id },
-      });
-
-      return vehicle;
-    } catch (error) {
-      logger.error(`Failed to get vehicle by ID: ${error}`);
-      throw error;
-    }
+  async getById(id: string) {
+    return prisma.vehicle.findUnique({ where: { id } });
   }
 
-  /**
-   * Get vehicle statistics
-   */
-  async getVehicleStatistics() {
-    try {
-      const now = new Date();
-      const offlineThreshold = new Date(now.getTime() - 30 * 60 * 1000); // 30 minutes
+  async getStatistics() {
+    const now = new Date();
+    const offlineThreshold = new Date(now.getTime() - 30 * 60 * 1000);
 
-      // Get all vehicles
-      const vehicles = await prisma.vehicle.findMany({
-        where: { status: 'active' },
-        select: {
-          id: true,
-          lastSeen: true,
-          lastSpeed: true,
-          lastIgnition: true,
-        },
-      });
+    const vehicles = await prisma.vehicle.findMany({
+      where: { status: 'active' },
+      select: {
+        id: true,
+        lastSeen: true,
+        lastSpeed: true,
+        lastIgnition: true,
+      },
+    });
 
-      // Guard against empty vehicles array
-      if (!vehicles || vehicles.length === 0) {
-        return {
-          total: 0,
-          moving: 0,
-          stopped: 0,
-          idle: 0,
-          offline: 0,
-        };
-      }
+    let moving = 0;
+    let stopped = 0;
+    let idle = 0;
+    let offline = 0;
 
-      // Calculate vehicle states
-      let moving = 0;
-      let stopped = 0;
-      let idle = 0;
-      let offline = 0;
+    for (const v of vehicles) {
+      const lastSeen = v.lastSeen;
+      const lastSpeed = v.lastSpeed ?? 0;
+      const lastIgnition = v.lastIgnition ?? false;
 
-      vehicles.forEach((vehicle) => {
-        const lastSeen = vehicle.lastSeen;
-        const lastSpeed = vehicle.lastSpeed ?? 0;
-        const lastIgnition = vehicle.lastIgnition ?? false;
-        
-        if (!lastSeen || lastSeen < offlineThreshold) {
-          offline++;
-        } else {
-          if (lastSpeed > 5) moving++;
-          else if (lastIgnition && lastSpeed > 0) idle++;
-          else stopped++;
-        }
-      });
-
-      return {
-        total: vehicles.length,
-        moving,
-        stopped,
-        idle,
-        offline,
-      };
-    } catch (error) {
-      logger.error(`Failed to get vehicle statistics: ${error}`);
-      throw error;
+      if (!lastSeen || lastSeen < offlineThreshold) offline++;
+      else if (lastSpeed > 5) moving++;
+      else if (lastIgnition && lastSpeed > 0) idle++;
+      else stopped++;
     }
+
+    return { total: vehicles.length, moving, stopped, idle, offline };
   }
 
-  /**
-   * Create vehicle
-   */
-  async createVehicle(vehicleData: any) {
-    try {
-      const vehicle = await prisma.vehicle.create({
-        data: vehicleData,
-      });
-
-      return vehicle;
-    } catch (error) {
-      logger.error(`Failed to create vehicle: ${error}`);
-      throw error;
-    }
+  async getPositions() {
+    return prisma.vehicle.findMany({
+      where: { status: 'active' },
+      select: {
+        id: true,
+        imei: true,
+        registrationNo: true,
+        lastLat: true,
+        lastLng: true,
+        lastSeen: true,
+        lastSpeed: true,
+        lastIgnition: true,
+      },
+      orderBy: { registrationNo: 'asc' },
+    });
   }
 
-  /**
-   * Update vehicle
-   */
-  async updateVehicle(id: string, vehicleData: any) {
-    try {
-      const vehicle = await prisma.vehicle.update({
-        where: { id },
-        data: vehicleData,
-      });
-
-      return vehicle;
-    } catch (error) {
-      logger.error(`Failed to update vehicle: ${error}`);
-      throw error;
-    }
+  async create(data: any) {
+    return prisma.vehicle.create({ data });
   }
 
-  /**
-   * Delete vehicle
-   */
-  async deleteVehicle(id: string) {
-    try {
-      const vehicle = await prisma.vehicle.delete({
-        where: { id },
-      });
+  async update(id: string, data: any) {
+    return prisma.vehicle.update({ where: { id }, data });
+  }
 
-      return vehicle;
-    } catch (error) {
-      logger.error(`Failed to delete vehicle: ${error}`);
-      throw error;
-    }
+  async delete(id: string) {
+    return prisma.vehicle.delete({ where: { id } });
   }
 }

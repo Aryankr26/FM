@@ -1,48 +1,35 @@
-import { Request, Response, NextFunction } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 import { logger } from '../config/logger';
 
 export class AppError extends Error {
-  statusCode: number;
-  isOperational: boolean;
+  readonly statusCode: number;
+  readonly expose: boolean;
 
-  constructor(message: string, statusCode: number = 500) {
+  constructor(message: string, statusCode: number, expose: boolean = true) {
     super(message);
     this.statusCode = statusCode;
-    this.isOperational = true;
-    Error.captureStackTrace(this, this.constructor);
+    this.expose = expose;
   }
 }
 
-export const errorHandler = (
-  err: Error | AppError,
-  req: Request,
-  res: Response,
-  _next: NextFunction
-): void => {
-  if (err instanceof AppError) {
-    logger.error(`${err.statusCode} - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
-    
-    res.status(err.statusCode).json({
-      error: err.message,
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    });
-    return;
-  }
-
-  // Unknown error
-  logger.error(`500 - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
-  logger.error(err.stack);
-
-  res.status(500).json({
-    error: 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { 
-      message: err.message,
-      stack: err.stack 
-    }),
-  });
-  return;
+export const notFound = (_req: Request, res: Response) => {
+  res.status(404).json({ message: 'Not found' });
 };
 
-export const notFound = (_req: Request, res: Response): void => {
-  res.status(404).json({ error: 'Route not found' });
+export const errorHandler = (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const appError = err instanceof AppError ? err : null;
+  const status = appError?.statusCode ?? 500;
+
+  const message =
+    appError?.expose === false
+      ? 'Internal server error'
+      : err instanceof Error
+        ? err.message
+        : 'Internal server error';
+
+  if (status >= 500) {
+    logger.error('Unhandled error', { err });
+  }
+
+  res.status(status).json({ message });
 };

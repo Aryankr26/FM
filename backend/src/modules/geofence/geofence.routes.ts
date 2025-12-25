@@ -1,50 +1,19 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import { GeofenceController } from './geofence.controller';
 import { authenticate, authorize } from '../../middleware/auth';
+import { GeofenceController } from './geofence.controller';
 
 const router: ExpressRouter = Router();
-const geofenceController = new GeofenceController();
+const controller = new GeofenceController();
 
-// All routes require authentication
 router.use(authenticate);
 
-// Get all geofences
-router.get(
-  '/',
-  geofenceController.getAll.bind(geofenceController)
-);
+router.get('/', controller.getAll.bind(controller));
+router.get('/alerts', controller.getAlerts.bind(controller));
+router.get('/alerts/all', controller.getAlerts.bind(controller));
+router.get('/:id', controller.getById.bind(controller));
 
-// Get geofence by ID
-router.get(
-  '/:id',
-  geofenceController.getById.bind(geofenceController)
-);
-
-// Create geofence (owner/supervisor only)
-router.post(
-  '/',
-  authorize('owner', 'supervisor'),
-  geofenceController.create.bind(geofenceController)
-);
-
-// Update geofence (owner/supervisor only)
-router.patch(
-  '/:id',
-  authorize('owner', 'supervisor'),
-  geofenceController.update.bind(geofenceController)
-);
-
-// Delete geofence (owner only)
-router.delete(
-  '/:id',
-  authorize('owner'),
-  geofenceController.delete.bind(geofenceController)
-);
-
-// Get geofence alerts
-router.get(
-  '/alerts/all',
-  geofenceController.getAlerts.bind(geofenceController)
-);
+router.post('/', authorize('owner', 'supervisor'), controller.create.bind(controller));
+router.patch('/:id', authorize('owner', 'supervisor'), controller.update.bind(controller));
+router.delete('/:id', authorize('owner'), controller.delete.bind(controller));
 
 export default router;

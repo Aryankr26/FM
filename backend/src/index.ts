@@ -3,95 +3,36 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { prisma } from './config/database';
-import { getGPSPoller } from './gps/poller.service';
-import { WebSocketService } from './websocket';
+import { initWebSocket } from './websocket/server';
 
-// Create Express app
 const app = createApp();
-
-// Create HTTP server
 const server = http.createServer(app);
 
-// Create WebSocket service (single source of truth)
-const wsService = new WebSocketService(server, {
-  cors: {
-    origin: env.cors.origins,
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  path: '/socket.io',
-  transports: ['websocket', 'polling']
-});
-
-// Make wsService available globally for broadcasting
-export { wsService };
-
-// GPS Poller instance
-let gpsPoller: ReturnType<typeof getGPSPoller> | null = null;
-
-// Start server
-const PORT = env.server.port;
-
 async function start() {
-  // Start HTTP server first so the app can boot even if DB is temporarily down.
-  server.listen(PORT, '0.0.0.0', () => {
-    logger.info(`✓ Server running on port ${PORT}`);
-    logger.info(`✓ Environment: ${env.server.env}`);
-    logger.info(`✓ GPS Provider: ${env.gps.provider}`);
-    logger.info(`✓ Health check: http://localhost:${PORT}/health`);
+  server.listen(env.server.port, '0.0.0.0', () => {
+    logger.info('Server started', { port: env.server.port });
   });
 
-  // Initialize DB + poller with retry (useful for local dev / Supabase setup).
-  let pollerStarted = false;
-  const tryInit = async () => {
+  try {
+    initWebSocket(server);
+    logger.info('WebSocket initialized');
+  } catch (err) {
+    logger.error('WebSocket failed to initialize (continuing without realtime)', { err });
+  }
+
+  const tryConnect = async () => {
     try {
       await prisma.$connect();
-      logger.info('✓ Database connected');
-
-      if (!pollerStarted) {
-        gpsPoller = getGPSPoller();
-        await gpsPoller.start();
-        pollerStarted = true;
-        logger.info('✓ GPS poller started');
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? `${error.name}: ${error.message}`
-          : typeof error === 'string'
-            ? error
-            : String(error);
-
-      logger.error(`Database unavailable (will retry): ${message}`);
+      logger.info('Database connected');
+    } catch (err) {
+      logger.error('Database unavailable, retrying', { err });
       setTimeout(() => {
-        void tryInit();
+        void tryConnect();
       }, 10_000);
     }
   };
 
-  void tryInit();
+  void tryConnect();
 }
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  server.close(async () => {
-    if (gpsPoller) await gpsPoller.stop();
-    await prisma.$disconnect();
-    logger.info('Server shut down');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  server.close(async () => {
-    if (gpsPoller) await gpsPoller.stop();
-    await prisma.$disconnect();
-    logger.info('Server shut down');
-    process.exit(0);
-  });
-});
-
-// Start the application
-start();
+void start();

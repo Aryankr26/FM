@@ -1,29 +1,13 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import { TripController } from './trip.controller';
 import { authenticate } from '../../middleware/auth';
+import { TripController } from './trip.controller';
 
 const router: ExpressRouter = Router();
-const tripController = new TripController();
+const controller = new TripController();
 
-// All routes require authentication
 router.use(authenticate);
-
-// Get all trips
-router.get(
-  '/',
-  tripController.getAll.bind(tripController)
-);
-
-// Get trips by vehicle
-router.get(
-  '/vehicle/:vehicleId',
-  tripController.getByVehicle.bind(tripController)
-);
-
-// Get trip by ID
-router.get(
-  '/:id',
-  tripController.getById.bind(tripController)
-);
+router.get('/', controller.getAll.bind(controller));
+router.get('/vehicle/:vehicleId', controller.getByVehicle.bind(controller));
+router.get('/:id', controller.getById.bind(controller));
 
 export default router;
