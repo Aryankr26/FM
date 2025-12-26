@@ -3,6 +3,8 @@ import { LoginPage } from './components/pages/LoginPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import { OwnerDashboard } from './components/pages/OwnerDashboard';
 import { SupervisorDashboard } from './components/pages/SupervisorDashboard';
+import { AdminDashboard } from './components/pages/AdminDashboard';
+import { Toaster } from './components/ui/sonner';
 import { GeofencingPage } from './components/pages/GeofencingPage';
 import { FuelReports } from './components/pages/FuelReports';
 import { ComplaintsPanel } from './components/pages/ComplaintsPanel';
@@ -14,6 +16,7 @@ const LoginPageAny = LoginPage as unknown as ComponentType<any>;
 const DashboardLayoutAny = DashboardLayout as unknown as ComponentType<any>;
 const OwnerDashboardAny = OwnerDashboard as unknown as ComponentType<any>;
 const SupervisorDashboardAny = SupervisorDashboard as unknown as ComponentType<any>;
+const AdminDashboardAny = AdminDashboard as unknown as ComponentType<any>;
 const GeofencingPageAny = GeofencingPage as unknown as ComponentType<any>;
 const FuelReportsAny = FuelReports as unknown as ComponentType<any>;
 const ComplaintsPanelAny = ComplaintsPanel as unknown as ComponentType<any>;
@@ -58,12 +61,20 @@ export default function App() {
   };
 
   if (!isLoggedIn) {
-    return <LoginPageAny onLogin={handleLogin} />;
+    return (
+      <>
+        <Toaster />
+        <LoginPageAny onLogin={handleLogin} />
+      </>
+    );
   }
 
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
+        if (userRole === 'admin') {
+          return <AdminDashboardAny />;
+        }
         return userRole === 'owner' ? (
           <OwnerDashboardAny onNavigate={handleNavigate} selectedVehicleId={selectedVehicleId} />
         ) : (
@@ -82,6 +93,9 @@ export default function App() {
       case 'routes':
         return <CompanyRoutesAny onNavigate={handleNavigate} />;
       default:
+        if (userRole === 'admin') {
+          return <AdminDashboardAny />;
+        }
         return userRole === 'owner' ? (
           <OwnerDashboardAny onNavigate={handleNavigate} selectedVehicleId={selectedVehicleId} />
         ) : (
@@ -91,8 +105,11 @@ export default function App() {
   };
 
   return (
-    <DashboardLayoutAny userRole={userRole} currentPage={currentPage} onNavigate={handleNavigate} onLogout={handleLogout}>
-      {renderPage()}
-    </DashboardLayoutAny>
+    <>
+      <Toaster />
+      <DashboardLayoutAny userRole={userRole} currentPage={currentPage} onNavigate={handleNavigate} onLogout={handleLogout}>
+        {renderPage()}
+      </DashboardLayoutAny>
+    </>
   );
 }

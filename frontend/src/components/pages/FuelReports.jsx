@@ -20,6 +20,66 @@ export function FuelReports() {
     dateTo: '',
   });
 
+  const escapeHtml = (value) => {
+    const s = String(value ?? '');
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
+  const downloadXls = (filename, htmlBody) => {
+    const html = `<!doctype html><html><head><meta charset="utf-8" /></head><body>${htmlBody}</body></html>`;
+    const blob = new Blob([`\ufeff${html}`], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const buildExportTable = (rows) => {
+    const head = `<thead><tr>
+      <th style="text-align:left; padding:8px; border:1px solid #e2e8f0; background:#f1f5f9;">Vehicle</th>
+      <th style="text-align:left; padding:8px; border:1px solid #e2e8f0; background:#f1f5f9;">Event Type</th>
+      <th style="text-align:left; padding:8px; border:1px solid #e2e8f0; background:#f1f5f9;">Timestamp</th>
+      <th style="text-align:left; padding:8px; border:1px solid #e2e8f0; background:#f1f5f9;">Change (L)</th>
+      <th style="text-align:left; padding:8px; border:1px solid #e2e8f0; background:#f1f5f9;">Severity</th>
+      <th style="text-align:left; padding:8px; border:1px solid #e2e8f0; background:#f1f5f9;">Pattern</th>
+    </tr></thead>`;
+
+    const body = `<tbody>${rows
+      .map((event) => {
+        const vehicle = vehicles.find((v) => v.id === event.vehicleId);
+        const vehicleLabel = vehicle?.registrationNo || vehicle?.imei || 'Unknown';
+        const ts = event.timestamp ? formatDate(event.timestamp) : '';
+        const delta = typeof event.delta === 'number' ? event.delta : 0;
+        return `<tr>
+          <td style="padding:8px; border:1px solid #e2e8f0;">${escapeHtml(vehicleLabel)}</td>
+          <td style="padding:8px; border:1px solid #e2e8f0;">${escapeHtml(event.eventType)}</td>
+          <td style="padding:8px; border:1px solid #e2e8f0;">${escapeHtml(ts)}</td>
+          <td style="padding:8px; border:1px solid #e2e8f0;">${escapeHtml(delta.toFixed(2))}</td>
+          <td style="padding:8px; border:1px solid #e2e8f0;">${escapeHtml(String(event.severity || ''))}</td>
+          <td style="padding:8px; border:1px solid #e2e8f0;">${escapeHtml(String(event.pattern || ''))}</td>
+        </tr>`;
+      })
+      .join('')}</tbody>`;
+
+    return `<table style="border-collapse:collapse; width:100%; font-family:Arial, sans-serif; font-size:12px;">${head}${body}</table>`;
+  };
+
+  const handleExportReport = () => {
+    const rows = Array.isArray(filteredEvents) ? filteredEvents : [];
+    const table = buildExportTable(rows);
+    const filename = `fuel-reports-${new Date().toISOString().slice(0, 10)}.xls`;
+    downloadXls(filename, `<h1>Fuel Reports</h1><div>Exported: ${escapeHtml(new Date().toLocaleString())}</div>${table}`);
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -109,7 +169,11 @@ export function FuelReports() {
               <h1 className="text-2xl font-bold text-slate-900">Fuel Reports</h1>
               <p className="text-slate-600 mt-1">Monitor fuel consumption and theft detection</p>
             </div>
-            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">
+            <button
+              onClick={handleExportReport}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+              disabled={!Array.isArray(filteredEvents) || filteredEvents.length === 0}
+            >
               <Download className="h-4 w-4" />
               Export Report
             </button>

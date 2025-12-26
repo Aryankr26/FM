@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -9,13 +11,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '../ui/table';
 import { User, Bell, Shield, MapPin, Droplet, Mail, Phone, Edit, Trash2, UserPlus, CheckCircle } from 'lucide-react';
 export function Settings() {
-    const users = [
+    const STORAGE_KEYS = {
+        company: 'fleet.settings.company',
+        notifications: 'fleet.settings.notifications',
+        channels: 'fleet.settings.notificationChannels',
+        telematics: 'fleet.settings.telematics',
+        users: 'fleet.settings.users',
+    };
+
+    const safeParseJson = (value, fallback) => {
+        try {
+            if (!value) return fallback;
+            const parsed = JSON.parse(value);
+            return parsed ?? fallback;
+        }
+        catch {
+            return fallback;
+        }
+    };
+
+    const defaultUsers = [
         { id: 1, name: 'John Anderson', email: 'john@fleetmaster.com', role: 'Owner', status: 'active', lastLogin: '2 hours ago' },
         { id: 2, name: 'Sarah Mitchell', email: 'sarah@fleetmaster.com', role: 'Supervisor', status: 'active', lastLogin: '5 min ago' },
         { id: 3, name: 'Michael Chen', email: 'michael@fleetmaster.com', role: 'Supervisor', status: 'active', lastLogin: '1 day ago' },
         { id: 4, name: 'Emily Davis', email: 'emily@fleetmaster.com', role: 'Operator', status: 'inactive', lastLogin: '3 days ago' },
     ];
-    const notificationSettings = [
+
+    const defaultNotificationSettings = [
         { id: 1, label: 'Vehicle Over-speeding', enabled: true },
         { id: 2, label: 'Unauthorized Stops', enabled: true },
         { id: 3, label: 'Low Fuel Alerts', enabled: true },
@@ -25,13 +47,149 @@ export function Settings() {
         { id: 7, label: 'Driver Performance Issues', enabled: false },
         { id: 8, label: 'Daily Summary Reports', enabled: true },
     ];
-    const telematicsConfig = [
+
+    const defaultTelematicsConfig = [
         { id: 1, parameter: 'Over-speed Threshold', value: '80 km/h', unit: 'km/h' },
         { id: 2, parameter: 'Idle Time Alert', value: '15 min', unit: 'minutes' },
         { id: 3, parameter: 'Harsh Braking Threshold', value: '8 m/s²', unit: 'm/s²' },
         { id: 4, parameter: 'Route Deviation Alert', value: '2 km', unit: 'km' },
         { id: 5, parameter: 'Low Fuel Warning', value: '20%', unit: 'percentage' },
     ];
+
+    const [users, setUsers] = useState(() => {
+        const raw = localStorage.getItem(STORAGE_KEYS.users);
+        const parsed = safeParseJson(raw, defaultUsers);
+        return Array.isArray(parsed) ? parsed : defaultUsers;
+    });
+
+    const [notificationSettings, setNotificationSettings] = useState(() => {
+        const raw = localStorage.getItem(STORAGE_KEYS.notifications);
+        const parsed = safeParseJson(raw, defaultNotificationSettings);
+        return Array.isArray(parsed) ? parsed : defaultNotificationSettings;
+    });
+
+    const [telematicsConfig, setTelematicsConfig] = useState(() => {
+        const raw = localStorage.getItem(STORAGE_KEYS.telematics);
+        const parsed = safeParseJson(raw, defaultTelematicsConfig);
+        return Array.isArray(parsed) ? parsed : defaultTelematicsConfig;
+    });
+
+    const [companyInfo, setCompanyInfo] = useState(() => {
+        const raw = localStorage.getItem(STORAGE_KEYS.company);
+        return safeParseJson(raw, {
+            name: 'FleetMaster Pro',
+            address: '123 Business Park, Chennai, Tamil Nadu',
+            phone: '+91 98765 43210',
+            email: 'contact@fleetmaster.com',
+        });
+    });
+
+    const [account, setAccount] = useState({
+        username: 'john.anderson',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+
+    const [channels, setChannels] = useState(() => {
+        const raw = localStorage.getItem(STORAGE_KEYS.channels);
+        return safeParseJson(raw, { email: true, sms: true, push: true, frequency: 'immediate' });
+    });
+
+    const persist = (key, value) => {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        }
+        catch {
+            return;
+        }
+    };
+
+    const handleUpdateCompanyInfo = () => {
+        persist(STORAGE_KEYS.company, companyInfo);
+        toast.success('Company info saved');
+    };
+
+    const handleChangePassword = async () => {
+        if (!account.currentPassword || !account.newPassword || !account.confirmPassword) {
+            toast.error('Please fill all password fields');
+            return;
+        }
+        if (account.newPassword !== account.confirmPassword) {
+            toast.error('New password and confirm password do not match');
+            return;
+        }
+
+        try {
+            const { authApi } = await import('../../services/api');
+            await authApi.changePassword(account.currentPassword, account.newPassword);
+            setAccount((prev) => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+            toast.success('Password changed');
+        }
+        catch (err) {
+            toast.error(err?.message || 'Failed to change password');
+        }
+    };
+
+    const handleSavePreferences = () => {
+        persist(STORAGE_KEYS.notifications, notificationSettings);
+        persist(STORAGE_KEYS.channels, channels);
+        toast.success('Notification preferences saved');
+    };
+
+    const handleSaveTelematics = () => {
+        persist(STORAGE_KEYS.telematics, telematicsConfig);
+        toast.success('Telematics configuration saved');
+    };
+
+    const nextUserId = useMemo(() => {
+        const maxId = users.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0);
+        return maxId + 1;
+    }, [users]);
+
+    const handleAddUser = () => {
+        const name = window.prompt('Enter name');
+        if (!name) return;
+        const email = window.prompt('Enter email');
+        if (!email) return;
+        const role = window.prompt('Enter role (Owner/Supervisor/Operator)', 'Supervisor');
+        if (!role) return;
+
+        const user = {
+            id: nextUserId,
+            name: String(name),
+            email: String(email),
+            role: String(role),
+            status: 'active',
+            lastLogin: 'never',
+        };
+        const next = [user, ...users];
+        setUsers(next);
+        persist(STORAGE_KEYS.users, next);
+        toast.success('User added');
+    };
+
+    const handleEditUser = (user) => {
+        const name = window.prompt('Edit name', user.name);
+        if (!name) return;
+        const role = window.prompt('Edit role (Owner/Supervisor/Operator)', user.role);
+        if (!role) return;
+        const status = window.prompt('Edit status (active/inactive)', user.status);
+        if (!status) return;
+
+        const next = users.map((u) => (u.id === user.id ? { ...u, name, role, status } : u));
+        setUsers(next);
+        persist(STORAGE_KEYS.users, next);
+        toast.success('User updated');
+    };
+
+    const handleDeleteUser = (user) => {
+        if (!window.confirm(`Delete ${user.name}?`)) return;
+        const next = users.filter((u) => u.id !== user.id);
+        setUsers(next);
+        persist(STORAGE_KEYS.users, next);
+        toast.success('User deleted');
+    };
     return (<div className="space-y-6">
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full max-w-2xl grid-cols-4">
@@ -51,21 +209,21 @@ export function Settings() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="company">Company Name</Label>
-                  <Input id="company" defaultValue="FleetMaster Pro"/>
+                  <Input id="company" value={companyInfo.name} onChange={(e) => setCompanyInfo((p) => ({ ...p, name: e.target.value }))}/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
-                  <Input id="address" defaultValue="123 Business Park, Chennai, Tamil Nadu"/>
+                  <Input id="address" value={companyInfo.address} onChange={(e) => setCompanyInfo((p) => ({ ...p, address: e.target.value }))}/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" defaultValue="+91 98765 43210"/>
+                  <Input id="phone" value={companyInfo.phone} onChange={(e) => setCompanyInfo((p) => ({ ...p, phone: e.target.value }))}/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" defaultValue="contact@fleetmaster.com"/>
+                  <Input id="email" value={companyInfo.email} onChange={(e) => setCompanyInfo((p) => ({ ...p, email: e.target.value }))}/>
                 </div>
-                <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]">
+                <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]" onClick={handleUpdateCompanyInfo}>
                   Update Company Info
                 </Button>
               </CardContent>
@@ -78,21 +236,21 @@ export function Settings() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
-                  <Input id="username" defaultValue="john.anderson"/>
+                  <Input id="username" value={account.username} onChange={(e) => setAccount((p) => ({ ...p, username: e.target.value }))}/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" placeholder="••••••••"/>
+                  <Input id="current-password" type="password" value={account.currentPassword} onChange={(e) => setAccount((p) => ({ ...p, currentPassword: e.target.value }))} placeholder="••••••••"/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" placeholder="••••••••"/>
+                  <Input id="new-password" type="password" value={account.newPassword} onChange={(e) => setAccount((p) => ({ ...p, newPassword: e.target.value }))} placeholder="••••••••"/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">Confirm Password</Label>
-                  <Input id="confirm-password" type="password" placeholder="••••••••"/>
+                  <Input id="confirm-password" type="password" value={account.confirmPassword} onChange={(e) => setAccount((p) => ({ ...p, confirmPassword: e.target.value }))} placeholder="••••••••"/>
                 </div>
-                <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]">
+                <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]" onClick={handleChangePassword}>
                   Change Password
                 </Button>
               </CardContent>
@@ -139,7 +297,7 @@ export function Settings() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>User Access Management</CardTitle>
-                <Button className="bg-[#0f172a] hover:bg-[#1e293b]">
+                <Button className="bg-[#0f172a] hover:bg-[#1e293b]" onClick={handleAddUser}>
                   <UserPlus className="h-4 w-4 mr-2"/>
                   Add New User
                 </Button>
@@ -184,10 +342,10 @@ export function Settings() {
                       <TableCell className="text-sm text-slate-600">{user.lastLogin}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
                             <Edit className="h-3 w-3"/>
                           </Button>
-                          {user.role !== 'Owner' && (<Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                          {user.role !== 'Owner' && (<Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteUser(user)}>
                               <Trash2 className="h-3 w-3"/>
                             </Button>)}
                         </div>
@@ -247,7 +405,13 @@ export function Settings() {
                     <Label htmlFor={`notification-${setting.id}`} className="cursor-pointer">
                       {setting.label}
                     </Label>
-                    <Switch id={`notification-${setting.id}`} defaultChecked={setting.enabled}/>
+                    <Switch
+                      id={`notification-${setting.id}`}
+                      checked={!!setting.enabled}
+                      onCheckedChange={(checked) =>
+                        setNotificationSettings((prev) => prev.map((s) => (s.id === setting.id ? { ...s, enabled: checked } : s)))
+                      }
+                    />
                   </div>))}
               </CardContent>
             </Card>
@@ -266,7 +430,7 @@ export function Settings() {
                         <p className="text-xs text-slate-600">contact@fleetmaster.com</p>
                       </div>
                     </div>
-                    <Switch defaultChecked/>
+                    <Switch checked={!!channels.email} onCheckedChange={(checked) => setChannels((p) => ({ ...p, email: checked }))}/>
                   </div>
 
                   <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
@@ -277,7 +441,7 @@ export function Settings() {
                         <p className="text-xs text-slate-600">+91 98765 43210</p>
                       </div>
                     </div>
-                    <Switch defaultChecked/>
+                    <Switch checked={!!channels.sms} onCheckedChange={(checked) => setChannels((p) => ({ ...p, sms: checked }))}/>
                   </div>
 
                   <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
@@ -288,13 +452,13 @@ export function Settings() {
                         <p className="text-xs text-slate-600">Mobile & Desktop</p>
                       </div>
                     </div>
-                    <Switch defaultChecked/>
+                    <Switch checked={!!channels.push} onCheckedChange={(checked) => setChannels((p) => ({ ...p, push: checked }))}/>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label>Notification Frequency</Label>
-                  <Select defaultValue="immediate">
+                  <Select value={channels.frequency} onValueChange={(v) => setChannels((p) => ({ ...p, frequency: v }))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -306,7 +470,7 @@ export function Settings() {
                   </Select>
                 </div>
 
-                <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]">
+                <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]" onClick={handleSavePreferences}>
                   Save Preferences
                 </Button>
               </CardContent>
@@ -330,7 +494,13 @@ export function Settings() {
                       <p className="text-sm text-slate-900">{config.parameter}</p>
                     </div>
                     <div>
-                      <Input defaultValue={config.value} className="bg-white"/>
+                      <Input
+                        value={config.value}
+                        onChange={(e) =>
+                          setTelematicsConfig((prev) => prev.map((c) => (c.id === config.id ? { ...c, value: e.target.value } : c)))
+                        }
+                        className="bg-white"
+                      />
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">{config.unit}</p>
@@ -374,7 +544,7 @@ export function Settings() {
                 </div>
               </div>
 
-              <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]">
+              <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]" onClick={handleSaveTelematics}>
                 Save Configuration
               </Button>
             </CardContent>

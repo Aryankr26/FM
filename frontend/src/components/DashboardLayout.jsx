@@ -1,10 +1,40 @@
-import { useState } from 'react';
-import { LayoutDashboard, Truck, Droplet, MessageSquare, Settings as SettingsIcon, LogOut, Bell, User, X, FileText, Building2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LayoutDashboard, Truck, Droplet, MessageSquare, Settings as SettingsIcon, LogOut, Bell, User, X, FileText, Building2, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
+import { Switch } from './ui/switch';
 export function DashboardLayout({ children, userRole, currentPage, onNavigate, onLogout }) {
     const [isContentOpen, setIsContentOpen] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(false);
+    const THEME_STORAGE_KEY = 'fleet.theme';
+
+    useEffect(() => {
+        try {
+            const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+            const nextIsDark = savedTheme === 'dark' || document.documentElement.classList.contains('dark');
+            setIsDarkMode(nextIsDark);
+        }
+        catch {
+            setIsDarkMode(document.documentElement.classList.contains('dark'));
+        }
+    }, []);
+
+    const setTheme = (nextIsDark) => {
+        setIsDarkMode(nextIsDark);
+        if (nextIsDark) {
+            document.documentElement.classList.add('dark');
+        }
+        else {
+            document.documentElement.classList.remove('dark');
+        }
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, nextIsDark ? 'dark' : 'light');
+        }
+        catch (error) {
+            void error;
+        }
+    };
     const navItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'reports', label: 'Reports/Data', icon: FileText },
@@ -24,34 +54,34 @@ export function DashboardLayout({ children, userRole, currentPage, onNavigate, o
         }
     };
     const currentPageLabel = navItems.find(item => item.id === currentPage)?.label || 'Dashboard';
-    return (<div className="flex h-screen bg-white overflow-hidden">
+    return (<div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Remove the map background - GeofencingPage has its own map */}
 
       {/* Left Sidebar */}
-      <aside className="relative z-10 w-72 bg-[#0a0f1e] text-white flex flex-col shadow-2xl">
+      <aside className="relative z-10 w-72 bg-sidebar text-sidebar-foreground flex flex-col shadow-2xl border-r border-sidebar-border">
         {/* Logo Section */}
-        <div className="p-6 border-b border-slate-800">
+        <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="bg-[#10b981] p-2 rounded-lg">
               <Truck className="h-6 w-6"/>
             </div>
             <div>
               <h1 className="tracking-tight">FleetMaster Pro</h1>
-              <p className="text-xs text-slate-400">Transport Management</p>
+              <p className="text-xs text-sidebar-foreground/60">Transport Management</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <p className="text-xs text-slate-400 px-4 mb-3">MAIN MENU</p>
+          <p className="text-xs text-sidebar-foreground/60 px-4 mb-3">MAIN MENU</p>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
             return (<div key={item.id}>
                 <button onClick={() => handleNavigation(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
                   <Icon className="h-5 w-5"/>
                   <span>{item.label}</span>
                 </button>
@@ -65,24 +95,32 @@ export function DashboardLayout({ children, userRole, currentPage, onNavigate, o
         </nav>
 
         {/* User Profile & Logout Section */}
-        <div className="p-4 border-t border-slate-700 space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
+        <div className="p-4 border-t border-sidebar-border space-y-3">
+          <div className="flex items-center gap-3 p-3 bg-sidebar-accent rounded-lg">
             <div className="h-10 w-10 rounded-full bg-[#10b981] flex items-center justify-center">
               <User className="h-5 w-5 text-white"/>
             </div>
             <div className="flex-1">
-              <p className="text-sm text-white">RKT Travels</p>
-              <p className="text-xs text-slate-400 capitalize">{userRole}</p>
+              <p className="text-sm text-sidebar-accent-foreground">RKT Travels</p>
+              <p className="text-xs text-sidebar-foreground/60 capitalize">{userRole}</p>
             </div>
             <div className="relative">
-              <Bell className="h-5 w-5 text-slate-400"/>
+              <Bell className="h-5 w-5 text-sidebar-foreground/60"/>
               <Badge className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 bg-red-500 text-white text-[10px]">
                 3
               </Badge>
             </div>
           </div>
 
-          <Button onClick={onLogout} variant="ghost" className="w-full justify-start text-slate-300 hover:text-white hover:bg-slate-800">
+          <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-sidebar-accent">
+            <div className="flex items-center gap-2">
+              {isDarkMode ? (<Moon className="h-4 w-4"/>) : (<Sun className="h-4 w-4"/>)}
+              <span className="text-sm text-sidebar-accent-foreground">Dark mode</span>
+            </div>
+            <Switch checked={isDarkMode} onCheckedChange={setTheme} aria-label="Toggle dark mode"/>
+          </div>
+
+          <Button onClick={onLogout} variant="ghost" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
             <LogOut className="h-5 w-5 mr-3"/>
             Logout
           </Button>
@@ -92,9 +130,9 @@ export function DashboardLayout({ children, userRole, currentPage, onNavigate, o
       {/* Content Sheet Overlay */}
       <Sheet open={isContentOpen} onOpenChange={setIsContentOpen}>
         <SheetContent side="right" className="w-[45vw] overflow-y-auto p-0">
-          <SheetHeader className="p-6 border-b border-slate-200 bg-white sticky top-0 z-10">
+          <SheetHeader className="p-6 border-b border-border bg-background sticky top-0 z-10">
             <div className="flex items-center justify-between">
-              <SheetTitle className="flex items-center gap-2 text-slate-900">
+              <SheetTitle className="flex items-center gap-2 text-foreground">
                 {navItems.find(item => item.id === currentPage)?.icon && (<div className="bg-[#10b981] p-2 rounded-lg">
                     {(() => {
                 const Icon = navItems.find(item => item.id === currentPage).icon;
@@ -107,7 +145,7 @@ export function DashboardLayout({ children, userRole, currentPage, onNavigate, o
                 <X className="h-4 w-4"/>
               </Button>
             </div>
-            <p className="text-sm text-slate-500 text-left">
+            <p className="text-sm text-muted-foreground text-left">
               {new Date().toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',

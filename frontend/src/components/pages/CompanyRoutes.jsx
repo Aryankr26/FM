@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { ChevronRight, MapPin, ArrowLeftRight, Navigation, TrendingUp, Map, Edit, Search, User } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -133,6 +134,31 @@ const lenskartRoutes = [
     }
 ];
 export function CompanyRoutes({ onNavigate } = {}) {
+    const STORAGE_PREFIX = 'fleet.companyRoutes.';
+    const safeParseJson = (value, fallback) => {
+        try {
+            if (!value)
+                return fallback;
+            const parsed = JSON.parse(value);
+            return parsed ?? fallback;
+        }
+        catch {
+            return fallback;
+        }
+    };
+
+    const [routesByCompany, setRoutesByCompany] = useState(() => {
+        const result = {};
+        for (const c of companies) {
+            const key = `${STORAGE_PREFIX}${c.id}`;
+            const fallback = c.id === 'lenskart' ? lenskartRoutes : [];
+            const raw = localStorage.getItem(key);
+            const parsed = safeParseJson(raw, fallback);
+            result[c.id] = Array.isArray(parsed) ? parsed : fallback;
+        }
+        return result;
+    });
+
     const [selectedCompany, setSelectedCompany] = useState(null);
     const [expandedRoute, setExpandedRoute] = useState(null);
     const [editingRoute, setEditingRoute] = useState(null);
@@ -142,6 +168,21 @@ export function CompanyRoutes({ onNavigate } = {}) {
     const [endSearch, setEndSearch] = useState('');
     const [startPin, setStartPin] = useState(null);
     const [endPin, setEndPin] = useState(null);
+
+    const selectedRoutes = useMemo(() => {
+        if (!selectedCompany)
+            return [];
+        return Array.isArray(routesByCompany[selectedCompany]) ? routesByCompany[selectedCompany] : [];
+    }, [routesByCompany, selectedCompany]);
+
+    const persistCompany = (companyId, nextRoutes) => {
+        try {
+            localStorage.setItem(`${STORAGE_PREFIX}${companyId}`, JSON.stringify(nextRoutes));
+        }
+        catch {
+            return;
+        }
+    };
     const handleCompanyClick = (companyId) => {
         setSelectedCompany(companyId);
         setExpandedRoute(null);
@@ -156,7 +197,8 @@ export function CompanyRoutes({ onNavigate } = {}) {
     const handleSeeOnMap = (e, vehicleNumber) => {
         e.stopPropagation(); // Prevent card expand/collapse
         if (onNavigate) {
-            onNavigate('dashboard', vehicleNumber);
+            const normalized = String(vehicleNumber || '').split('/')[0].trim();
+            onNavigate('dashboard', normalized || vehicleNumber);
         }
     };
     const handleEditRoute = (e, route) => {
@@ -189,22 +231,49 @@ export function CompanyRoutes({ onNavigate } = {}) {
         setNewDriverName('');
     };
     const handleSaveRoute = () => {
-        // In a real application, this would save to backend
-        console.log('Saving route:', {
-            routeId: editingRoute?.id,
-            startPin,
-            endPin,
-            startSearch,
-            endSearch
+        if (!selectedCompany || !editingRoute)
+            return;
+        if (!startPin || !endPin)
+            return;
+
+        const startName = String(startSearch || editingRoute?.stops?.[0] || 'Start');
+        const endName = String(endSearch || editingRoute?.stops?.[editingRoute?.stops?.length - 1] || 'End');
+        const prevStops = Array.isArray(editingRoute.stops) ? editingRoute.stops : [];
+        const nextStops = prevStops.length > 0 ? [...prevStops] : [startName, endName];
+        nextStops[0] = startName;
+        nextStops[nextStops.length - 1] = endName;
+
+        const updatedRoute = {
+            ...editingRoute,
+            startPoint: { lat: startPin.lat, lng: startPin.lng, name: startName },
+            endPoint: { lat: endPin.lat, lng: endPin.lng, name: endName },
+            stops: nextStops,
+            route: nextStops.join(' → '),
+        };
+
+        setRoutesByCompany((prev) => {
+            const current = Array.isArray(prev[selectedCompany]) ? prev[selectedCompany] : [];
+            const next = current.map((r) => (r.id === editingRoute.id ? updatedRoute : r));
+            persistCompany(selectedCompany, next);
+            return { ...prev, [selectedCompany]: next };
         });
+        toast.success('Route saved');
         handleCloseEdit();
     };
     const handleSaveDriver = () => {
-        // In a real application, this would save to backend
-        console.log('Saving driver:', {
-            routeId: editingDriver?.id,
-            newDriverName
+        if (!selectedCompany || !editingDriver)
+            return;
+        const name = String(newDriverName || '').trim();
+        if (!name)
+            return;
+
+        setRoutesByCompany((prev) => {
+            const current = Array.isArray(prev[selectedCompany]) ? prev[selectedCompany] : [];
+            const next = current.map((r) => (r.id === editingDriver.id ? { ...r, driverName: name } : r));
+            persistCompany(selectedCompany, next);
+            return { ...prev, [selectedCompany]: next };
         });
+        toast.success('Driver saved');
         handleCloseDriverEdit();
     };
     const handleMapClick = (e, type) => {
@@ -317,7 +386,7 @@ export function CompanyRoutes({ onNavigate } = {}) {
 
         {/* Routes List */}
         <div className="space-y-4">
-          {lenskartRoutes.map((route, index) => (<Card key={route.id} className="group hover:shadow-xl transition-all duration-300 border-2 hover:border-blue-400 cursor-pointer animate-slideUp" style={{ animationDelay: `${index * 50}ms` }} onClick={() => toggleRouteExpand(route.id)}>
+          {selectedRoutes.map((route, index) => (<Card key={route.id} className="group hover:shadow-xl transition-all duration-300 border-2 hover:border-blue-400 cursor-pointer animate-slideUp" style={{ animationDelay: `${index * 50}ms` }} onClick={() => toggleRouteExpand(route.id)}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

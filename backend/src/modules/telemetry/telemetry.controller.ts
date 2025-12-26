@@ -2,7 +2,7 @@ import { type NextFunction, type Request, type Response } from 'express';
 import { prisma } from '../../config/database';
 import { broadcastVehicleUpdate } from '../../websocket/broadcaster';
 import { TelemetryService } from './telemetry.service';
-import { type TelemetryInput } from './telemetry.types';
+import { type TelemetryInput, type TelemetryPhoneInput } from './telemetry.types';
 
 const service = new TelemetryService();
 
@@ -33,6 +33,100 @@ export class TelemetryController {
       res.status(202).json({
         message: 'Telemetry received',
         imei: input.imei,
+        timestamp,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async ingestPhone(req: Request, res: Response, next: NextFunction) {
+    try {
+      const input = req.body as TelemetryPhoneInput;
+      const user = req.user;
+      if (!user?.id) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const timestamp = input.timestamp instanceof Date ? input.timestamp : new Date(input.timestamp);
+
+      let vehicle = null as any;
+      if (input.vehicleId) {
+        vehicle = await prisma.vehicle.findUnique({ where: { id: input.vehicleId } });
+        if (!vehicle) {
+          res.status(404).json({ message: 'Vehicle not found' });
+          return;
+        }
+
+        const role = String(user.role || '');
+        const isPrivileged = role === 'admin' || role === 'supervisor';
+        if (!isPrivileged && vehicle.ownerId && vehicle.ownerId !== user.id) {
+          res.status(403).json({ message: 'Forbidden' });
+          return;
+        }
+      }
+
+      if (!vehicle) {
+        vehicle = await prisma.vehicle.findFirst({ where: { ownerId: user.id } });
+      }
+
+      if (!vehicle) {
+        const imei = `PHONE-${user.id}`;
+        vehicle = await prisma.vehicle.upsert({
+          where: { imei },
+          update: { ownerId: user.id },
+          create: {
+            imei,
+            registrationNo: `PHONE-${user.id}`,
+            ownerId: user.id,
+            make: 'Phone',
+            model: 'GPS',
+          },
+        });
+      }
+
+      const rawBase = input.raw;
+      const raw =
+        input.accuracy !== undefined
+          ? {
+              ...(rawBase && typeof rawBase === 'object' && !Array.isArray(rawBase) ? (rawBase as any) : { raw: rawBase }),
+              accuracy: input.accuracy,
+              source: 'PHONE_GPS',
+            }
+          : rawBase;
+
+      const payload: Omit<TelemetryInput, 'timestamp'> & { timestamp: Date } = {
+        imei: vehicle.imei,
+        timestamp,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        speed: input.speed,
+        ignition: input.ignition,
+        motion: input.motion,
+        fuelLevel: undefined,
+        odometer: undefined,
+        power: undefined,
+        raw,
+      };
+
+      await service.createTelemetry(vehicle.id, payload);
+      await service.updateVehiclePosition(vehicle.id, payload);
+
+      broadcastVehicleUpdate({
+        vehicleId: vehicle.id,
+        imei: vehicle.imei,
+        registrationNo: vehicle.registrationNo,
+        lastLat: payload.latitude,
+        lastLng: payload.longitude,
+        lastSpeed: payload.speed,
+        lastIgnition: payload.ignition,
+        lastSeen: payload.timestamp,
+      });
+
+      res.status(202).json({
+        message: 'Telemetry received',
+        vehicleId: vehicle.id,
         timestamp,
       });
     } catch (err) {

@@ -113,12 +113,177 @@ const geofenceData = [
 ];
 export function ReportsData() {
     const [selectedReport, setSelectedReport] = useState(null);
+
+    const escapeHtml = (value) => {
+        const s = String(value ?? '');
+        return s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
+    const getActiveReportSpec = () => {
+        switch (selectedReport) {
+            case 'ignition':
+                return {
+                    id: 'ignition',
+                    title: 'Ignition Hours Report',
+                    columns: [
+                        { label: 'Vehicle Number', key: 'vehicle' },
+                        { label: 'Date', key: 'date' },
+                        { label: 'Ignition ON', key: 'ignitionOn' },
+                        { label: 'Ignition OFF', key: 'ignitionOff' },
+                        { label: 'Total Hours', key: 'totalHours' },
+                    ],
+                    rows: ignitionData,
+                };
+            case 'ac':
+                return {
+                    id: 'ac',
+                    title: 'AC Hours Report',
+                    columns: [
+                        { label: 'Vehicle Number', key: 'vehicle' },
+                        { label: 'Date', key: 'date' },
+                        { label: 'AC ON', key: 'acOn' },
+                        { label: 'AC OFF', key: 'acOff' },
+                        { label: 'Total Hours', key: 'totalHours' },
+                        { label: 'Fuel Consumed', key: 'fuelConsumed' },
+                    ],
+                    rows: acData,
+                };
+            case 'route-tracing':
+                return {
+                    id: 'route-tracing',
+                    title: 'Route Tracing Report',
+                    columns: [
+                        { label: 'Vehicle Number', key: 'vehicle' },
+                        { label: 'Date', key: 'date' },
+                        { label: 'Route', key: 'route' },
+                        { label: 'Distance', key: 'distance' },
+                        { label: 'Duration', key: 'duration' },
+                        { label: 'Avg Speed', key: 'avgSpeed' },
+                    ],
+                    rows: routeTracingData,
+                };
+            case 'vehicle-onoff':
+                return {
+                    id: 'vehicle-onoff',
+                    title: 'Vehicle On/Off Data',
+                    columns: [
+                        { label: 'Vehicle Number', key: 'vehicle' },
+                        { label: 'Date', key: 'date' },
+                        { label: 'Status', key: 'status' },
+                        { label: 'Time', key: 'time' },
+                        { label: 'Location', key: 'location' },
+                        { label: 'Driver', key: 'driver' },
+                    ],
+                    rows: vehicleOnOffData,
+                };
+            case 'device-overstated':
+                return {
+                    id: 'device-overstated',
+                    title: 'Device Overstated Report',
+                    columns: [
+                        { label: 'Vehicle Number', key: 'vehicle' },
+                        { label: 'Date', key: 'date' },
+                        { label: 'Issue', key: 'issue' },
+                        { label: 'Severity', key: 'severity' },
+                        { label: 'Duration', key: 'duration' },
+                        { label: 'Status', key: 'status' },
+                    ],
+                    rows: deviceOverstatedData,
+                };
+            case 'maintenance':
+                return {
+                    id: 'maintenance',
+                    title: 'Maintenance Logs',
+                    columns: [
+                        { label: 'Vehicle Number', key: 'vehicle' },
+                        { label: 'Date', key: 'date' },
+                        { label: 'Service Type', key: 'type' },
+                        { label: 'Cost', key: 'cost' },
+                        { label: 'Next Due', key: 'nextDue' },
+                        { label: 'Status', key: 'status' },
+                    ],
+                    rows: maintenanceData,
+                };
+            case 'geofence':
+                return {
+                    id: 'geofence',
+                    title: 'Geofence Reports',
+                    columns: [
+                        { label: 'Vehicle Number', key: 'vehicle' },
+                        { label: 'Date', key: 'date' },
+                        { label: 'Geofence', key: 'geofence' },
+                        { label: 'Event', key: 'event' },
+                        { label: 'Time', key: 'time' },
+                        { label: 'Duration', key: 'duration' },
+                    ],
+                    rows: geofenceData,
+                };
+            default:
+                return null;
+        }
+    };
+
+    const buildTableHtml = (columns, rows) => {
+        const thead = `<thead><tr>${columns
+            .map((c) => `<th style="text-align:left; padding:8px; border:1px solid #e2e8f0; background:#f1f5f9;">${escapeHtml(c.label)}</th>`)
+            .join('')}</tr></thead>`;
+
+        const tbody = `<tbody>${rows
+            .map((r) => {
+                const tds = columns
+                    .map((c) => `<td style="padding:8px; border:1px solid #e2e8f0;">${escapeHtml(r?.[c.key])}</td>`)
+                    .join('');
+                return `<tr>${tds}</tr>`;
+            })
+            .join('')}</tbody>`;
+
+        return `<table style="border-collapse:collapse; width:100%; font-family:Arial, sans-serif; font-size:12px;">${thead}${tbody}</table>`;
+    };
+
+    const downloadXls = (filename, htmlBody) => {
+        const html = `<!doctype html><html><head><meta charset="utf-8" /></head><body>${htmlBody}</body></html>`;
+        const blob = new Blob([`\ufeff${html}`], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };
+
+    const openPrintWindow = (title, htmlBody) => {
+        const w = window.open('', '_blank', 'noopener,noreferrer');
+        if (!w) return;
+        const html = `<!doctype html><html><head><meta charset="utf-8" /><title>${escapeHtml(
+            title,
+        )}</title><style>body{font-family:Arial, sans-serif; padding:16px;} h1{font-size:18px; margin:0 0 12px;} .meta{color:#475569; font-size:12px; margin:0 0 12px;} @media print{button{display:none;}}</style></head><body><h1>${escapeHtml(
+            title,
+        )}</h1><div class="meta">Generated: ${escapeHtml(new Date().toLocaleString())}</div>${htmlBody}<script>window.focus(); setTimeout(()=>window.print(), 250);</script></body></html>`;
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+    };
+
     const handleDownloadPDF = () => {
-        alert('Downloading PDF report...');
+        const spec = getActiveReportSpec();
+        if (!spec) return;
+        const table = buildTableHtml(spec.columns, spec.rows);
+        openPrintWindow(spec.title, table);
         // In real application, this would generate and download a PDF
     };
     const handleDownloadExcel = () => {
-        alert('Downloading Excel report...');
+        const spec = getActiveReportSpec();
+        if (!spec) return;
+        const table = buildTableHtml(spec.columns, spec.rows);
+        const filename = `${spec.id}-report-${new Date().toISOString().slice(0, 10)}.xls`;
+        downloadXls(filename, `<h1>${escapeHtml(spec.title)}</h1>${table}`);
         // In real application, this would generate and download an Excel file
     };
     const renderReportData = () => {

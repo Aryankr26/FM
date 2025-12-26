@@ -39,14 +39,22 @@ export const FleetMap = forwardRef(function FleetMap(props, ref) {
         const onUpdate = (data) => {
             try {
                 const parsed = typeof data === "string" ? JSON.parse(data) : data;
-                const id = parsed.imei ? String(parsed.imei) : parsed.vehicleId ? String(parsed.vehicleId) : undefined;
-                const lat = typeof parsed.lat === "number" ? parsed.lat : undefined;
-                const lng = typeof parsed.lng === "number" ? parsed.lng : typeof parsed.lon === "number" ? parsed.lon : undefined;
+                const id = parsed.vehicleId ? String(parsed.vehicleId) : parsed.imei ? String(parsed.imei) : undefined;
+                const lat = typeof parsed.lat === "number" ? parsed.lat : typeof parsed.lastLat === "number" ? parsed.lastLat : undefined;
+                const lng =
+                    typeof parsed.lng === "number"
+                        ? parsed.lng
+                        : typeof parsed.lastLng === "number"
+                          ? parsed.lastLng
+                          : typeof parsed.lon === "number"
+                            ? parsed.lon
+                            : undefined;
                 if (!id || lat == null || lng == null)
                     return;
+                const label = parsed.registrationNo ? String(parsed.registrationNo) : id;
                 setLiveById((prev) => ({
                     ...prev,
-                    [id]: { id, label: id, lat, lng },
+                    [id]: { id, label, lat, lng },
                 }));
             }
             catch {

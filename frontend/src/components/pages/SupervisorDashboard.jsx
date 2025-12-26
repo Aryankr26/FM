@@ -81,7 +81,7 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
         setLoading(true);
         
         // Fetch in parallel
-        const [statsRes, vehiclesRes, alertsRes] = await Promise.all([
+        const [statsRes, vehiclesRes, alertsRes] = await Promise.allSettled([
           dashboardApi.getStatistics(),
           dashboardApi.getLive(),
           alertsApi.getAll({ resolved: false, limit: 10 })
@@ -129,13 +129,9 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
     // Set up real-time updates
     const handleVehicleUpdate = (data) => {
       setVehicles(prev => {
-        const index = prev.findIndex(v => v.id === data.id);
-        if (index !== -1) {
-          const updated = [...prev];
-          updated[index] = transformVehicle(data);
-          return updated;
-        }
-        return prev;
+        const id = data?.vehicleId ? String(data.vehicleId) : data?.id ? String(data.id) : null;
+        if (!id) return prev;
+        return prev.map(v => (v.id === id ? transformVehicle({ ...v, ...data }) : v));
       });
     };
 
@@ -143,11 +139,16 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
       setAlerts(prev => [alert, ...prev.slice(0, 9)]);
     };
 
+    wsService.connect();
+    wsService.on('vehicle:update', handleVehicleUpdate);
     wsService.on('vehicle_update', handleVehicleUpdate);
+    wsService.on('alert:new', handleAlertUpdate);
     wsService.on('alert_created', handleAlertUpdate);
 
     return () => {
+      wsService.off('vehicle:update', handleVehicleUpdate);
       wsService.off('vehicle_update', handleVehicleUpdate);
+      wsService.off('alert:new', handleAlertUpdate);
       wsService.off('alert_created', handleAlertUpdate);
     };
   }, []);
@@ -155,7 +156,7 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
   // Handle selected vehicle from props
   useEffect(() => {
     if (selectedVehicleId && vehicles.length > 0) {
-      const vehicle = vehicles.find(v => v.id === selectedVehicleId);
+      const vehicle = vehicles.find(v => v.id === selectedVehicleId || v.number === selectedVehicleId);
       if (vehicle) {
         setDetailVehicle(vehicle);
       }

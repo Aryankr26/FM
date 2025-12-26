@@ -119,6 +119,53 @@ export class AuthController {
     }
   }
 
+  async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const { currentPassword, newPassword } = req.body as {
+        currentPassword?: string;
+        newPassword?: string;
+      };
+
+      if (!currentPassword || !newPassword) {
+        res.status(400).json({ message: 'Current password and new password are required' });
+        return;
+      }
+
+      if (String(newPassword).length < 6) {
+        res.status(400).json({ message: 'New password must be at least 6 characters' });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      const ok = await bcrypt.compare(currentPassword, user.password);
+      if (!ok) {
+        res.status(401).json({ message: 'Invalid current password' });
+        return;
+      }
+
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashed },
+      });
+
+      res.json({ message: 'Password changed successfully' });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async refresh(req: Request, res: Response) {
     try {
       const { refreshToken } = req.body as { refreshToken?: string };

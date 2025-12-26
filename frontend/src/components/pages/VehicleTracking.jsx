@@ -51,11 +51,18 @@ export function VehicleTracking() {
         wsService.connect();
         const unsubscribe = wsService.on('vehicle:update', (data) => {
             setVehicles(prev => {
-                const updated = prev.map(v => 
-                    v.id === data.vehicleId 
-                        ? { ...v, ...data, status: getVehicleStatus(data) }
-                        : v
-                );
+                const updated = prev.map(v => {
+                    if (v.id !== data.vehicleId) return v;
+                    const next = {
+                        ...v,
+                        ...data,
+                        lat: typeof data.lastLat === 'number' ? data.lastLat : v.lat,
+                        lng: typeof data.lastLng === 'number' ? data.lastLng : v.lng,
+                        speed: typeof data.lastSpeed === 'number' ? data.lastSpeed : v.speed,
+                        ignition: typeof data.lastIgnition === 'boolean' ? data.lastIgnition : v.ignition,
+                    };
+                    return { ...next, status: getVehicleStatus(next) };
+                });
                 updateStats(updated);
                 return updated;
             });
@@ -71,8 +78,10 @@ export function VehicleTracking() {
     }, []);
 
     const getVehicleStatus = (vehicle) => {
-        if (!vehicle.lastIgnition) return 'stopped';
-        if (vehicle.lastSpeed > 5) return 'moving';
+        const ignition = typeof vehicle?.lastIgnition === 'boolean' ? vehicle.lastIgnition : vehicle?.ignition;
+        const speed = typeof vehicle?.lastSpeed === 'number' ? vehicle.lastSpeed : vehicle?.speed;
+        if (!ignition) return 'stopped';
+        if ((speed || 0) > 5) return 'moving';
         return 'idle';
     };
 

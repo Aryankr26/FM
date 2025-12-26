@@ -127,7 +127,7 @@ export function OwnerDashboard({ onNavigate, selectedVehicleId }) {
   // Handle selected vehicle from props
   useEffect(() => {
     if (selectedVehicleId && vehicles.length > 0) {
-      const vehicle = vehicles.find(v => v.id === selectedVehicleId);
+      const vehicle = vehicles.find(v => v.id === selectedVehicleId || v.number === selectedVehicleId);
       if (vehicle) {
         setDetailVehicle(vehicle);
       }

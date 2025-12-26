@@ -12,14 +12,15 @@ type DemoUser = {
 };
 
 const demoUsers: DemoUser[] = [
-  { email: 'admin@fleet.com', role: 'owner' },
+  { email: 'owner@fleet.com', role: 'owner' },
   { email: 'supervisor@fleet.com', role: 'supervisor' },
+  { email: 'admin@fleet.com', role: 'admin' },
 ];
 
 async function main() {
-  const demoPassword = process.env.DEMO_PASSWORD;
-  if (!demoPassword) {
-    throw new Error('DEMO_PASSWORD is required to seed demo users');
+  const demoPassword = process.env.DEMO_PASSWORD || 'password123';
+  if (!process.env.DEMO_PASSWORD) {
+    console.warn('DEMO_PASSWORD not set; defaulting demo user password to "password123"');
   }
 
   const prisma = new PrismaClient();

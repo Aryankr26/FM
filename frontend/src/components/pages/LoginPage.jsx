@@ -15,7 +15,6 @@ import { api } from '../../services/api';
 export function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [demoMode, setDemoMode] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
@@ -41,7 +40,7 @@ export function LoginPage({ onLogin }) {
       message.toLowerCase().includes('failed to fetch');
 
     if (isNetwork) {
-      return 'Unable to reach the server. Check that the backend is running or enable Demo Mode.';
+      return 'Unable to reach the server. Check that the backend is running.';
     }
 
     if (status === 400) {
@@ -59,15 +58,7 @@ export function LoginPage({ onLogin }) {
     return message || 'Login failed. Please try again.';
   };
 
-  const resolveDemoRole = (overrideRole) => {
-    if (overrideRole) return overrideRole;
-    const e = String(email || '').toLowerCase().trim();
-    if (e === 'admin@fleet.com') return 'owner';
-    if (e === 'supervisor@fleet.com') return 'supervisor';
-    return 'supervisor';
-  };
-
-  const login = async ({ nextEmail, nextPassword, roleOverride } = {}) => {
+  const login = async ({ nextEmail, nextPassword } = {}) => {
     if (submittingRef.current) return;
 
     const e = (nextEmail ?? email).trim();
@@ -78,25 +69,6 @@ export function LoginPage({ onLogin }) {
     setIsSubmitting(true);
 
     try {
-      if (demoMode) {
-        const role = resolveDemoRole(roleOverride);
-
-        if (String(p) !== 'password123') {
-          throw new Error('Invalid demo password. Demo Password: password123');
-        }
-
-        const user = {
-          id: `demo-${role}`,
-          email: e || (role === 'owner' ? 'admin@fleet.com' : 'supervisor@fleet.com'),
-          role,
-        };
-        const token = `demo-token-${role}`;
-
-        persistAuth({ token, user });
-        onLogin(role);
-        return;
-      }
-
       const data = await api.auth.login({ email: e, password: p });
       const { token, user } = data || {};
 
@@ -120,16 +92,19 @@ export function LoginPage({ onLogin }) {
   };
 
   const handleQuickDemo = async (role) => {
-    const demoEmail = role === 'owner' ? 'admin@fleet.com' : 'supervisor@fleet.com';
+    const demoEmail =
+      role === 'owner'
+        ? 'owner@fleet.com'
+        : role === 'admin'
+          ? 'admin@fleet.com'
+          : 'supervisor@fleet.com';
     const demoPassword = 'password123';
 
     setEmail(demoEmail);
     setPassword(demoPassword);
     setError('');
 
-    if (demoMode) {
-      await login({ nextEmail: demoEmail, nextPassword: demoPassword, roleOverride: role });
-    }
+    await login({ nextEmail: demoEmail, nextPassword: demoPassword });
   };
 
   return (
@@ -203,7 +178,7 @@ export function LoginPage({ onLogin }) {
               <div className="h-px w-full bg-slate-200" />
               <div className="text-[11px] text-center text-slate-500">Quick Demo Login:</div>
 
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -224,27 +199,19 @@ export function LoginPage({ onLogin }) {
                 >
                   Supervisor
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  disabled={isSubmitting}
+                  onClick={() => handleQuickDemo('admin')}
+                >
+                  Admin
+                </Button>
               </div>
 
               <div className="text-[11px] text-center text-slate-500">Demo Password: password123</div>
-
-              <div className="flex items-center justify-center gap-2">
-                <input
-                  id="demoMode"
-                  type="checkbox"
-                  checked={demoMode}
-                  disabled={isSubmitting}
-                  className="h-3 w-3"
-                  onChange={(e) => {
-                    setDemoMode(e.target.checked);
-                    if (error) setError('');
-                  }}
-                />
-
-                <Label htmlFor="demoMode" className="text-xs text-slate-500 font-normal">
-                  Demo Mode (no backend required)
-                </Label>
-              </div>
             </div>
           </form>
         </CardContent>

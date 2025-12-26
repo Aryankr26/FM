@@ -12,8 +12,8 @@ router.get('/alerts', controller.getAlerts.bind(controller));
 router.get('/alerts/all', controller.getAlerts.bind(controller));
 router.get('/:id', controller.getById.bind(controller));
 
-router.post('/', authorize('owner', 'supervisor'), controller.create.bind(controller));
-router.patch('/:id', authorize('owner', 'supervisor'), controller.update.bind(controller));
-router.delete('/:id', authorize('owner'), controller.delete.bind(controller));
+router.post('/', authorize('owner', 'supervisor', 'admin'), controller.create.bind(controller));
+router.patch('/:id', authorize('owner', 'supervisor', 'admin'), controller.update.bind(controller));
+router.delete('/:id', authorize('owner', 'supervisor', 'admin'), controller.delete.bind(controller));
 
 export default router;

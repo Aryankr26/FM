@@ -108,6 +108,12 @@ export const authApi = {
 
   me: () => request('/api/auth/me'),
 
+  changePassword: (currentPassword, newPassword) =>
+    request('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
   refreshToken: (refreshToken) =>
     request('/api/auth/refresh', {
       method: 'POST',
@@ -150,6 +156,12 @@ export const telemetryApi = {
 
   getLatest: (vehicleId) =>
     request(`/api/telemetry/vehicle/${vehicleId}/latest`),
+
+  ingestPhone: (payload) =>
+    request('/api/telemetry/phone', {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    }),
 };
 
 // Fuel API
