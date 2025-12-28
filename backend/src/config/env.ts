@@ -25,19 +25,41 @@ const loadEnvFile = (filePath: string, allowOverride: boolean) => {
 };
 
 const repoRootEnvPath = path.resolve(__dirname, '..', '..', '..', '.env');
+const repoRootEnvDevPath = path.resolve(__dirname, '..', '..', '..', '.env.development');
 const backendEnvPath = path.resolve(__dirname, '..', '..', '.env');
+const backendEnvDevPath = path.resolve(__dirname, '..', '..', '.env.development');
+
+const isDevScript = process.env.npm_lifecycle_event === 'dev';
 
 loadEnvFile(repoRootEnvPath, false);
 loadEnvFile(backendEnvPath, true);
 
-const envSchema = z.object({
+if (isDevScript) {
+  loadEnvFile(repoRootEnvDevPath, true);
+  loadEnvFile(backendEnvDevPath, true);
+}
+
+const envSchemaBase = z.object({
   DATABASE_URL: z.string().min(1),
+  DIRECT_URL: z.string().optional(),
   JWT_SECRET: z.string().min(1),
   PORT: z.coerce.number().int().positive().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  FRONTEND_URL: z.string().min(1).default('http://localhost:3000'),
+  FRONTEND_URL: z.string().min(1).default('https://fm-puce-iota.vercel.app'),
   CORS_ORIGINS: z.string().optional().default(''),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).optional(),
+  MILLITRACK_BASE_URL: z.string().optional().default('https://mvts1.millitrack.com'),
+  MILLITRACK_TOKEN: z.string().optional(),
+});
+
+const envSchema = envSchemaBase.superRefine((data, ctx) => {
+  if (!isDevScript && data.NODE_ENV === 'production' && !data.DIRECT_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DIRECT_URL'],
+      message: 'DIRECT_URL is required in production (needed for prisma migrate deploy on Supabase). For local dev, set NODE_ENV=development or provide DIRECT_URL.',
+    });
+  }
 });
 
 const parse = envSchema.safeParse(process.env);
@@ -79,16 +101,24 @@ const buildCorsOrigins = (frontendUrl: string, corsOrigins: string, nodeEnv: str
 export const env = {
   server: {
     port: parse.data.PORT ?? 4000,
-    nodeEnv: parse.data.NODE_ENV,
+    nodeEnv: isDevScript ? 'development' : parse.data.NODE_ENV,
   },
   auth: {
     jwtSecret: parse.data.JWT_SECRET,
+  },
+  militrack: {
+    baseUrl: parse.data.MILLITRACK_BASE_URL,
+    token: parse.data.MILLITRACK_TOKEN,
   },
   frontend: {
     url: normalizeOrigin(parse.data.FRONTEND_URL),
   },
   cors: {
-    origins: buildCorsOrigins(parse.data.FRONTEND_URL, parse.data.CORS_ORIGINS ?? '', parse.data.NODE_ENV),
+    origins: buildCorsOrigins(
+      parse.data.FRONTEND_URL,
+      parse.data.CORS_ORIGINS ?? '',
+      isDevScript ? 'development' : parse.data.NODE_ENV,
+    ),
   },
   logger: {
     level: parse.data.LOG_LEVEL,

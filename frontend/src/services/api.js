@@ -1,7 +1,19 @@
 // API Service Layer for Fleet Management System
 // Centralized API communication with the backend
 
-const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
+const inferApiBaseUrl = () => {
+  if (typeof window === 'undefined') return undefined;
+  const host = window.location.hostname;
+  const isLocal = host === 'localhost' || host === '127.0.0.1';
+  if (isLocal) return undefined;
+  return 'https://fm-sk7u.onrender.com';
+};
+
+const API_BASE_URL = (
+  process.env.REACT_APP_API_URL ||
+  inferApiBaseUrl() ||
+  'http://127.0.0.1:4000'
+).replace(/\/$/, '');
 
 class ApiError extends Error {
   constructor(message, status, data) {
@@ -162,6 +174,13 @@ export const telemetryApi = {
       method: 'POST',
       body: JSON.stringify(payload || {}),
     }),
+};
+
+export const militrackApi = {
+  getDeviceInfo: (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    return request(`/api/militrack/device-info${queryParams ? `?${queryParams}` : ''}`);
+  },
 };
 
 // Fuel API

@@ -5,6 +5,8 @@ import { PrismaClient } from '@prisma/client';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env.development'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '..', '.env.development'), override: true });
 
 type DemoUser = {
   email: string;

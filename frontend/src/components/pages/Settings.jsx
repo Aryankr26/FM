@@ -142,6 +142,30 @@ export function Settings() {
         toast.success('Telematics configuration saved');
     };
 
+    const handleViewInvoices = () => {
+        toast.message('Invoices are not available in this demo build');
+    };
+
+    const handleUpgradePlan = () => {
+        toast.message('Plan upgrades are not available in this demo build');
+    };
+
+    const handleAddPaymentMethod = () => {
+        toast.message('Payment methods are not available in this demo build');
+    };
+
+    const handleTestMilitrack = async () => {
+        try {
+            const { militrackApi } = await import('../../services/api');
+            const res = await militrackApi.getDeviceInfo();
+            const data = res?.data;
+            const count = Array.isArray(data) ? data.length : data && typeof data === 'object' && Array.isArray(data.data) ? data.data.length : null;
+            toast.success(`Militrack device info fetched${typeof count === 'number' ? ` (${count})` : ''}`);
+        } catch (err) {
+            toast.error(err?.message || 'Failed to fetch Militrack device info');
+        }
+    };
+
     const nextUserId = useMemo(() => {
         const maxId = users.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0);
         return maxId + 1;
@@ -283,9 +307,10 @@ export function Settings() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline">View Invoices</Button>
-                <Button variant="outline">Upgrade Plan</Button>
-                <Button variant="outline">Add Payment Method</Button>
+                <Button variant="outline" onClick={handleViewInvoices}>View Invoices</Button>
+                <Button variant="outline" onClick={handleUpgradePlan}>Upgrade Plan</Button>
+                <Button variant="outline" onClick={handleAddPaymentMethod}>Add Payment Method</Button>
+                <Button variant="outline" onClick={handleTestMilitrack}>Test Militrack</Button>
               </div>
             </CardContent>
           </Card>

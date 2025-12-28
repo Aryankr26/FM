@@ -4,10 +4,11 @@ services:
     env: node
     plan: free
     rootDir: backend
-    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build
-    startCommand: pnpm prisma:deploy && pnpm start
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build:full
+    startCommand: pnpm prisma:deploy && pnpm seed && pnpm start
     envVars:
       - key: DATABASE_URL
+      - key: DIRECT_URL
       - key: JWT_SECRET
       - key: JWT_REFRESH_SECRET
       - key: JWT_EXPIRES_IN

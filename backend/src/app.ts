@@ -13,6 +13,7 @@ import telemetryRoutes from './modules/telemetry/telemetry.routes';
 import fuelRoutes from './modules/fuel/fuel.routes';
 import geofenceRoutes from './modules/geofence/geofence.routes';
 import tripRoutes from './modules/trip/trip.routes';
+import militrackRoutes from './modules/militrack/militrack.routes';
 
 const isLocalDevOrigin = (origin: string): boolean => {
   try {
@@ -75,6 +76,7 @@ export function createApp(): Express {
   app.use('/api/fuel', fuelRoutes);
   app.use('/api/geofence', geofenceRoutes);
   app.use('/api/trips', tripRoutes);
+  app.use('/api/militrack', militrackRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

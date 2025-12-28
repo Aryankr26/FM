@@ -125,7 +125,7 @@ const pointInPolygon = (point, polygon) => {
     const xj = polygon[j].lng;
     const yj = polygon[j].lat;
 
-    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    const intersect = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card } from '../ui/card';
 import { Search, X, MapPin, Gauge, Fuel, User, Wrench, FileText, DollarSign, Truck, Clock, Navigation2, Activity, Edit, Trash2, Map } from 'lucide-react';
@@ -358,7 +359,7 @@ export function InsightsPage({ onNavigate }) {
             setShowPopup(true);
         }
         else {
-            alert('Vehicle not found. Please check the vehicle number.');
+            toast.error('Vehicle not found. Please check the vehicle number.');
         }
     };
     const getStatusColor = (status) => {

@@ -150,7 +150,13 @@ export function LoginPage({ onLogin }) {
                 placeholder="Enter password"
                 value={password}
 
-               
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError('');
+                }}
+                className="bg-slate-50"
+                disabled={isSubmitting}
+                required
               />
             </div>
 
