@@ -63,7 +63,11 @@ export class VehiclesController {
       const id = String(req.params.id);
       const vehicle = await service.update(id, req.body);
       res.json({ data: vehicle });
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.code === 'P2025') {
+        res.status(404).json({ message: 'Vehicle not found' });
+        return;
+      }
       next(err);
     }
   }
@@ -73,7 +77,11 @@ export class VehiclesController {
       const id = String(req.params.id);
       const vehicle = await service.delete(id);
       res.json({ data: vehicle });
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.code === 'P2025') {
+        res.status(404).json({ message: 'Vehicle not found' });
+        return;
+      }
       next(err);
     }
   }

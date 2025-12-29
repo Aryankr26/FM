@@ -31,12 +31,21 @@ export class MilitrackController {
   }
 
   async getDevices(req: Request, res: Response, next: NextFunction) {
+    const extraQuery = normalizeQuery(req.query);
     try {
-      const extraQuery = normalizeQuery(req.query);
       const devices = await service.listDevices(extraQuery);
-      res.json({ count: devices.length, data: devices });
+      try {
+        await service.syncDevicesToDb(devices);
+      } catch {
+      }
+      res.json({ count: devices.length, data: devices, source: 'militrack' });
     } catch (err) {
-      next(err);
+      try {
+        const stored = await service.listStoredDevices();
+        res.json({ count: stored.length, data: stored, source: 'db' });
+      } catch {
+        next(err);
+      }
     }
   }
 }

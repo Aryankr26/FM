@@ -3,10 +3,42 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
 
+const normalizeDatabaseUrl = (raw?: string): string | undefined => {
+  if (!raw) return raw;
+
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    const isSupabase = host.endsWith('.supabase.co') || host.endsWith('.pooler.supabase.com');
+    const isPooler = host.endsWith('.pooler.supabase.com');
+
+    if (isSupabase && !url.searchParams.has('sslmode')) {
+      url.searchParams.set('sslmode', 'require');
+    }
+    if (isPooler && !url.searchParams.has('pgbouncer')) {
+      url.searchParams.set('pgbouncer', 'true');
+    }
+
+    return url.toString();
+  } catch {
+    return raw;
+  }
+};
+
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env.development'), override: true });
 dotenv.config({ path: path.resolve(__dirname, '..', '.env.development'), override: true });
+
+const normalized = normalizeDatabaseUrl(process.env.DATABASE_URL);
+if (normalized && normalized !== process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = normalized;
+}
+
+const normalizedDirect = normalizeDatabaseUrl(process.env.DIRECT_URL);
+if (normalizedDirect && normalizedDirect !== process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = normalizedDirect;
+}
 
 type DemoUser = {
   email: string;

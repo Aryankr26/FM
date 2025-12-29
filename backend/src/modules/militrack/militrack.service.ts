@@ -1,4 +1,6 @@
 import { env } from '../../config/env';
+import { prisma } from '../../config/database';
+import { logger } from '../../config/logger';
 import { AppError } from '../../middleware/errorHandler';
 
 export type MilitrackDevice = {
@@ -10,6 +12,37 @@ export type MilitrackDevice = {
   ignition: boolean | null;
   lastSeen: string | null;
   raw: unknown;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fetchWithTimeout = async (url: string, timeoutMs: number): Promise<Response> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const fetchWithRetry = async (url: string, attempts: number, timeoutMs: number): Promise<Response> => {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fetchWithTimeout(url, timeoutMs);
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) {
+        await sleep(400 * (i + 1));
+      }
+    }
+  }
+  throw lastErr;
 };
 
 const toNumber = (value: unknown): number | null => {
@@ -100,6 +133,38 @@ const extractDeviceArray = (payload: unknown): unknown[] => {
   return [];
 };
 
+const parseTimestamp = (value: string | null): Date => {
+  if (!value) return new Date();
+
+  const num = Number(value);
+  if (Number.isFinite(num)) {
+    const asMs = num > 10_000_000_000 ? num : num * 1000;
+    const d = new Date(asMs);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+
+  const d = new Date(value);
+  if (!Number.isNaN(d.getTime())) return d;
+  return new Date();
+};
+
+const truncate = (value: string, max: number) => (value.length > max ? `${value.slice(0, max)}…` : value);
+
+const resolveRegistrationNo = async (desired: string | null, imei: string): Promise<string | null> => {
+  if (!desired) return null;
+  const clean = desired.trim();
+  if (!clean) return null;
+
+  const existing = await prisma.vehicle.findFirst({ where: { registrationNo: clean }, select: { imei: true } });
+  if (!existing || existing.imei === imei) return clean;
+
+  const fallback = `${clean}-${imei.slice(-4)}`;
+  const existing2 = await prisma.vehicle.findFirst({ where: { registrationNo: fallback }, select: { imei: true } });
+  if (!existing2 || existing2.imei === imei) return fallback;
+
+  return null;
+};
+
 export class MilitrackService {
   async getDeviceInfo(extraQuery: Record<string, string | undefined>) {
     const token = env.militrack.token;
@@ -119,15 +184,14 @@ export class MilitrackService {
 
     let resp: Response;
     try {
-      resp = await fetch(url.toString(), {
-        method: 'GET',
-        headers: { accept: 'application/json' },
-      });
-    } catch {
+      resp = await fetchWithRetry(url.toString(), 3, 12_000);
+    } catch (err) {
+      logger.warn('Militrack request failed', { err: err instanceof Error ? err.message : err });
       throw new AppError('Failed to reach Militrack', 502);
     }
 
     const text = await resp.text();
+    logger.debug('Militrack raw response', { status: resp.status, body: truncate(text || '', 2000) });
     let parsed: any = text;
     try {
       parsed = text ? JSON.parse(text) : null;
@@ -155,5 +219,85 @@ export class MilitrackService {
       if (d) devices.push(d);
     }
     return devices;
+  }
+
+  async syncDevicesToDb(devices: MilitrackDevice[]): Promise<void> {
+    for (const d of devices) {
+      const lastSeen = parseTimestamp(d.lastSeen);
+      const registrationNo = await resolveRegistrationNo(d.label || null, d.id);
+
+      const vehicle = await prisma.vehicle.upsert({
+        where: { imei: d.id },
+        update: {
+          registrationNo,
+          make: 'militrack',
+          lastLat: d.lat,
+          lastLng: d.lng,
+          lastSeen,
+          lastSpeed: d.speed == null ? null : d.speed,
+          lastIgnition: d.ignition,
+          status: 'active',
+        },
+        create: {
+          imei: d.id,
+          registrationNo,
+          make: 'militrack',
+          model: null,
+          year: null,
+          vin: null,
+          fuelCapacity: null,
+          lastLat: d.lat,
+          lastLng: d.lng,
+          lastSeen,
+          lastSpeed: d.speed == null ? null : d.speed,
+          lastIgnition: d.ignition,
+          gpsOdometer: 0,
+          dashOdometer: 0,
+          status: 'active',
+        },
+        select: { id: true },
+      });
+
+      await prisma.telemetry.create({
+        data: {
+          vehicleId: vehicle.id,
+          timestamp: lastSeen,
+          latitude: d.lat,
+          longitude: d.lng,
+          speed: d.speed == null ? 0 : d.speed,
+          ignition: d.ignition == null ? false : d.ignition,
+          motion: d.speed != null ? d.speed > 1 : null,
+          raw: d.raw as any,
+        },
+      });
+    }
+  }
+
+  async listStoredDevices(): Promise<MilitrackDevice[]> {
+    const vehicles = await prisma.vehicle.findMany({
+      where: { make: 'militrack', status: 'active', lastLat: { not: null }, lastLng: { not: null } },
+      select: {
+        imei: true,
+        registrationNo: true,
+        lastLat: true,
+        lastLng: true,
+        lastSpeed: true,
+        lastIgnition: true,
+        lastSeen: true,
+      },
+      orderBy: { registrationNo: 'asc' },
+      take: 500,
+    });
+
+    return vehicles.map((v) => ({
+      id: v.imei,
+      label: v.registrationNo || v.imei,
+      lat: v.lastLat as number,
+      lng: v.lastLng as number,
+      speed: v.lastSpeed ?? null,
+      ignition: v.lastIgnition ?? null,
+      lastSeen: v.lastSeen ? v.lastSeen.toISOString() : null,
+      raw: null,
+    }));
   }
 }

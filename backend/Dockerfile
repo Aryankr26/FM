@@ -11,16 +11,16 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 
 # Install dependencies
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN npm install -g pnpm && pnpm install --frozen-lockfile --prod=false
 
 # Copy the rest of the application code
 COPY . .
 
 # Build TypeScript
-RUN pnpm run build
+RUN pnpm run build:full
 
 # Expose port (change if your app uses a different port)
-EXPOSE 3000
+EXPOSE 4000
 
 # Start the application
-CMD ["pnpm", "start"]
+CMD ["sh", "-c", "pnpm prisma:deploy && pnpm seed && pnpm start"]

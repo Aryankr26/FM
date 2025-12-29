@@ -48,7 +48,7 @@ const envSchemaBase = z.object({
   FRONTEND_URL: z.string().min(1).default('https://fm-puce-iota.vercel.app'),
   CORS_ORIGINS: z.string().optional().default(''),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).optional(),
-  MILLITRACK_BASE_URL: z.string().optional().default('https://mvts1.millitrack.com'),
+  MILLITRACK_BASE_URL: z.string().optional().default('https://mvts4.millitrack.com'),
   MILLITRACK_TOKEN: z.string().optional(),
 });
 
