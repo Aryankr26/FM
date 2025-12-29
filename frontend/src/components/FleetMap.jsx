@@ -107,7 +107,15 @@ export const FleetMap = forwardRef(function FleetMap(props, ref) {
             map.on("zoomend", () => props.onZoomChange?.(map.getZoom()));
         }}>
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url={tileUrl}/>
-        {vehicles.map((vehicle) => (<Marker key={vehicle.id} position={[vehicle.lat, vehicle.lng]} icon={defaultMarkerIcon}>
+        {vehicles.map((vehicle) => (<Marker
+            key={vehicle.id}
+            position={[vehicle.lat, vehicle.lng]}
+            icon={defaultMarkerIcon}
+            eventHandlers={{
+                click: () => {
+                    props.onVehicleClick?.(vehicle.id);
+                },
+            }}>
             <Popup>
               <div className="text-sm text-slate-900">
                 <div className="font-semibold">{vehicle.label ?? vehicle.id}</div>

@@ -4,8 +4,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FleetMap } from '../FleetMap';
-import { dashboardApi, alertsApi } from '../../services/api';
-import wsService from '../../services/websocket';
+import { alertsApi, militrackApi } from '../../services/api';
 
 const getVehicleStatus = (v) => {
   if (!v.lastIgnition) return 'stopped';
@@ -56,6 +55,26 @@ const transformVehicle = (v) => ({
 
 const transformVehicles = (data) => data.map(transformVehicle);
 
+const transformMilitrackDevice = (d) =>
+  transformVehicle({
+    id: d.id,
+    imei: d.id,
+    registrationNo: d.label || d.id,
+    make: 'militrack',
+    model: null,
+    year: null,
+    vin: null,
+    fuelCapacity: null,
+    lastLat: d.lat,
+    lastLng: d.lng,
+    lastSeen: d.lastSeen,
+    lastSpeed: typeof d.speed === 'number' ? d.speed : 0,
+    lastIgnition: d.ignition,
+    gpsOdometer: 0,
+    dashOdometer: 0,
+    status: 'active',
+  });
+
 export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
   const [activeTab, setActiveTab] = useState('live');
   const baseZoom = 11;
@@ -81,20 +100,20 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
         setLoading(true);
         
         // Fetch in parallel
-        const [statsRes, vehiclesRes, alertsRes] = await Promise.allSettled([
-          dashboardApi.getStatistics(),
-          dashboardApi.getLive(),
-          alertsApi.getAll({ resolved: false, limit: 10 })
+        const [devicesRes, alertsRes] = await Promise.allSettled([
+          militrackApi.getDevices(),
+          alertsApi.getAll({ resolved: false, limit: 10 }),
         ]);
 
         // Process each result individually
-        const [statsResult, vehiclesResult, alertsResult] = [statsRes, vehiclesRes, alertsRes];
-        
-        // Handle vehicles data
-        if (vehiclesResult.status === 'fulfilled') {
-          setVehicles(transformVehicles(vehiclesResult.value.data || []));
+        const [devicesResult, alertsResult] = [devicesRes, alertsRes];
+
+        if (devicesResult.status === 'fulfilled') {
+          const rows = devicesResult.value?.data;
+          const normalized = Array.isArray(rows) ? rows : [];
+          setVehicles(normalized.map(transformMilitrackDevice));
         } else {
-          console.error('Failed to fetch vehicles:', vehiclesResult.reason);
+          console.error('Failed to fetch Militrack devices:', devicesResult.reason);
           setVehicles([]);
         }
         
@@ -105,12 +124,7 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
           console.error('Failed to fetch alerts:', alertsResult.reason);
           setAlerts([]);
         }
-        
-        // Handle stats (optional for dashboard functionality)
-        if (statsResult.status === 'rejected') {
-          console.error('Failed to fetch stats:', statsResult.reason);
-        }
-        
+
         setError(null);
       } catch (err) {
         console.error('Unexpected error in dashboard data fetch:', err);
@@ -125,31 +139,26 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
     };
 
     fetchDashboardData();
-    
-    // Set up real-time updates
-    const handleVehicleUpdate = (data) => {
-      setVehicles(prev => {
-        const id = data?.vehicleId ? String(data.vehicleId) : data?.id ? String(data.id) : null;
-        if (!id) return prev;
-        return prev.map(v => (v.id === id ? transformVehicle({ ...v, ...data }) : v));
-      });
-    };
 
+    const timer = setInterval(() => {
+      militrackApi
+        .getDevices()
+        .then((res) => {
+          const rows = res?.data;
+          const normalized = Array.isArray(rows) ? rows : [];
+          setVehicles(normalized.map(transformMilitrackDevice));
+        })
+        .catch((err) => {
+          console.error('Militrack poll failed:', err);
+        });
+    }, 10_000);
+    
     const handleAlertUpdate = (alert) => {
       setAlerts(prev => [alert, ...prev.slice(0, 9)]);
     };
 
-    wsService.connect();
-    wsService.on('vehicle:update', handleVehicleUpdate);
-    wsService.on('vehicle_update', handleVehicleUpdate);
-    wsService.on('alert:new', handleAlertUpdate);
-    wsService.on('alert_created', handleAlertUpdate);
-
     return () => {
-      wsService.off('vehicle:update', handleVehicleUpdate);
-      wsService.off('vehicle_update', handleVehicleUpdate);
-      wsService.off('alert:new', handleAlertUpdate);
-      wsService.off('alert_created', handleAlertUpdate);
+      clearInterval(timer);
     };
   }, []);
 
@@ -182,7 +191,6 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
   };
 
   const filteredVehicles = vehicles.filter(v => {
-    if (activeTab === 'live' && v.status !== 'moving') return false;
     if (statusFilter !== 'all' && v.status !== statusFilter) return false;
     return true;
   });
@@ -227,6 +235,7 @@ export function SupervisorDashboard({ onNavigate, selectedVehicleId }) {
             id: v.id,
             lat: v.lat,
             lng: v.lng,
+            label: v.number,
             registrationNo: v.number,
             status: v.status,
             speed: v.speed,

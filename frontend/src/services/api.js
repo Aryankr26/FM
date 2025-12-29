@@ -181,6 +181,11 @@ export const militrackApi = {
     const queryParams = new URLSearchParams(params).toString();
     return request(`/api/militrack/device-info${queryParams ? `?${queryParams}` : ''}`);
   },
+
+  getDevices: (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    return request(`/api/militrack/devices${queryParams ? `?${queryParams}` : ''}`);
+  },
 };
 
 // Fuel API
