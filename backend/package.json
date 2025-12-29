@@ -7,15 +7,15 @@
     "build": "tsc",
     "build:full": "tsc && prisma generate",
     "start": "node dist/index.js",
-    "prisma:generate": "dotenv -e .env.development -- prisma generate",
-    "prisma:migrate": "dotenv -e .env.development -- prisma migrate deploy",
-    "prisma:migrate:dev": "dotenv -e .env.development -- prisma migrate dev",
-    "prisma:deploy": "dotenv -e .env.development -- prisma migrate deploy",
+    "prisma:generate": "dotenv -c development -- prisma generate",
+    "prisma:migrate": "dotenv -c development -- prisma migrate deploy",
+    "prisma:migrate:dev": "dotenv -c development -- prisma migrate dev",
+    "prisma:deploy": "dotenv -c development -- prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
-    "postinstall": "dotenv -e .env.development -- prisma generate || prisma generate"
+    "postinstall": "dotenv -c development -- prisma generate || prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "^7.2.0",
+    "@prisma/client": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -33,7 +33,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.10.6",
     "dotenv-cli": "^7.4.4",
-    "prisma": "^7.2.0",
+    "prisma": "^6.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },

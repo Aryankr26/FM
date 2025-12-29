@@ -8,12 +8,13 @@ const normalizeDatabaseUrl = (raw?: string): string | undefined => {
     const host = url.hostname.toLowerCase();
     const isSupabase = host.endsWith('.supabase.co') || host.endsWith('.pooler.supabase.com');
     const isPooler = host.endsWith('.pooler.supabase.com');
+    const isTransactionPooler = isPooler && url.port === '6543';
 
     if (isSupabase && !url.searchParams.has('sslmode')) {
       url.searchParams.set('sslmode', 'require');
     }
 
-    if (isPooler && !url.searchParams.has('pgbouncer')) {
+    if (isTransactionPooler && !url.searchParams.has('pgbouncer')) {
       url.searchParams.set('pgbouncer', 'true');
     }
 

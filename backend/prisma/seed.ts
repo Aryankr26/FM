@@ -11,11 +11,12 @@ const normalizeDatabaseUrl = (raw?: string): string | undefined => {
     const host = url.hostname.toLowerCase();
     const isSupabase = host.endsWith('.supabase.co') || host.endsWith('.pooler.supabase.com');
     const isPooler = host.endsWith('.pooler.supabase.com');
+    const isTransactionPooler = isPooler && url.port === '6543';
 
     if (isSupabase && !url.searchParams.has('sslmode')) {
       url.searchParams.set('sslmode', 'require');
     }
-    if (isPooler && !url.searchParams.has('pgbouncer')) {
+    if (isTransactionPooler && !url.searchParams.has('pgbouncer')) {
       url.searchParams.set('pgbouncer', 'true');
     }
 
@@ -29,6 +30,10 @@ dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env.development'), override: true });
 dotenv.config({ path: path.resolve(__dirname, '..', '.env.development'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env.local'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '..', '.env.local'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env.development.local'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '..', '.env.development.local'), override: true });
 
 const normalized = normalizeDatabaseUrl(process.env.DATABASE_URL);
 if (normalized && normalized !== process.env.DATABASE_URL) {
